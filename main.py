@@ -1,21 +1,19 @@
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord import app_commands
 import os
-import asyncio
-import json
-import io
-from datetime import datetime, timedelta
 from keep_alive import keep_alive
 from discord.ui import Select, View, Button
 
 # --- Bot Configuration ---
 TOKEN = os.environ.get("DISCORD_TOKEN")
-LOG_CHANNEL_ID = 1477923902834475080 
-ADMIN_CONTROL_CHANNEL = 1477954227442679910 
-DB_FILE = "punishments.json"
+LOG_CHANNEL_ID = 1477923902834475080  # Support Ticket Logs
+ADMIN_CONTROL_CHANNEL = 1477954227442679910  # Admin Control Room
 
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.message_content = True
+intents.guilds = True
+intents.members = True 
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -23,105 +21,117 @@ class MyBot(commands.Bot):
 
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"NEXUS System: All commands synced for {self.user}")
+        print(f"Synced slash commands for {self.user}")
 
 bot = MyBot()
 
-# --- [Formatting View for Media Support] ---
+# --- [1] Support System (Modal & Buttons) ---
+class SupportModal(discord.ui.Modal, title='NEXUS Support Form'):
+    user_msg = discord.ui.TextInput(
+        label='How can we help you?',
+        style=discord.TextStyle.paragraph,
+        placeholder='Type your message or query here...',
+        required=True,
+        min_length=10,
+    )
 
-class FormatView(View):
-    def __init__(self, ch, content, files):
-        super().__init__(timeout=120)
-        self.ch = ch
-        self.content = content or ""
-        self.files = files or []
-
-    async def get_discord_files(self):
-        """Attachments ko asli files mein convert karne ke liye"""
-        actual_files = []
-        for f in self.files:
-            try:
-                # File ko memory mein download karna
-                fp = io.BytesIO()
-                await f.save(fp)
-                actual_files.append(discord.File(fp, filename=f.filename))
-            except:
-                continue
-        return actual_files
-
-    @discord.ui.button(label="Normal", style=discord.ButtonStyle.secondary)
-    async def normal(self, inter: discord.Interaction, btn: Button):
-        await inter.response.defer(ephemeral=True)
-        files_to_send = await self.get_discord_files()
-        await self.ch.send(content=self.content if self.content else None, files=files_to_send)
-        await inter.followup.send("✅ Sent as Normal Message.", ephemeral=True)
-
-    @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
-    async def embed(self, inter: discord.Interaction, btn: Button):
-        await inter.response.defer(ephemeral=True)
+    async def on_submit(self, interaction: discord.Interaction):
+        log_channel = bot.get_channel(LOG_CHANNEL_ID)
         
-        embed = discord.Embed(description=self.content or "‎", color=discord.Color.blue())
-        embed.set_author(name="NEXUS Announcement", icon_url=bot.user.display_avatar.url)
-        
-        files_to_send = await self.get_discord_files()
-        
-        # Agar image hai toh usse Embed mein set karna
-        if self.files:
-            for f in self.files:
-                if any(f.filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]):
-                    embed.set_image(url=f"attachment://{f.filename}")
-                    break
+        embed = discord.Embed(title="New Support Ticket", color=discord.Color.green())
+        embed.add_field(name="User", value=f"{interaction.user.mention} ({interaction.user.name})", inline=True)
+        embed.add_field(name="User ID", value=interaction.user.id, inline=True)
+        embed.add_field(name="Message", value=self.user_msg.value, inline=False)
+        embed.set_thumbnail(url=interaction.user.display_avatar.url)
 
-        await self.ch.send(embed=embed, files=files_to_send)
-        await inter.followup.send("✅ Sent as Embed with Media Support.", ephemeral=True)
+        if log_channel:
+            await log_channel.send(embed=embed)
+            await interaction.response.send_message("Your message has been sent to the NEXUS team!", ephemeral=True)
+        else:
+            await interaction.response.send_message("Error: Log channel not found.", ephemeral=True)
 
-# --- [Dashboard Channel Selection] ---
+class HelpView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
 
-class ChannelSel(Select):
-    def __init__(self, content, attachments):
+    @discord.ui.button(label="Contact Support", style=discord.ButtonStyle.primary, emoji="📩")
+    async def contact_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(SupportModal())
+
+@bot.tree.command(name="help", description="Get professional support from NEXUS Team")
+async def help_slash(interaction: discord.Interaction):
+    description = (
+        "**Welcome to NEXUS Support™**\n\n"
+        "We provide seamless assistance and top-tier solutions for all your queries. "
+        "Click the button below to submit your request."
+    )
+    embed = discord.Embed(
+        title="NEXUS | Professional Support Portal",
+        description=description,
+        color=discord.Color.blue()
+    )
+    embed.set_footer(text="NEXUS Support - Excellence in Service")
+    embed.set_thumbnail(url=bot.user.display_avatar.url)
+    
+    await interaction.response.send_message(embed=embed, view=HelpView())
+
+# --- [2] Master Control Panel (Dropdown & Media Support) ---
+
+class MessageFormatView(View):
+    def __init__(self, target_channel, content):
+        super().__init__(timeout=60)
+        self.target_channel = target_channel
         self.content = content
-        self.attachments = attachments
-        # Sirf text channels ki list
+
+    @discord.ui.button(label="Normal Text", style=discord.ButtonStyle.secondary)
+    async def send_normal(self, interaction: discord.Interaction, button: Button):
+        await self.target_channel.send(self.content)
+        await interaction.response.send_message(f"Message delivered to {self.target_channel.mention}", ephemeral=True)
+
+    @discord.ui.button(label="Embed Message", style=discord.ButtonStyle.success)
+    async def send_embed(self, interaction: discord.Interaction, button: Button):
+        embed = discord.Embed(description=self.content, color=discord.Color.blue())
+        embed.set_author(name="NEXUS Support™", icon_url=bot.user.display_avatar.url)
+        
+        # Check if the content is an image link to show it properly in Embed
+        if any(ext in self.content.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+            embed.set_image(url=self.content)
+            embed.description = "" # Clear text if it's just an image
+
+        await self.target_channel.send(embed=embed)
+        await interaction.response.send_message(f"Embed delivered to {self.target_channel.mention}", ephemeral=True)
+
+class ChannelDropdown(Select):
+    def __init__(self, content):
+        self.msg_content = content
         options = []
         channels = [c for c in bot.get_all_channels() if isinstance(c, discord.TextChannel)]
-        for c in channels[:25]:
-            options.append(discord.SelectOption(label=f"#{c.name}", value=str(c.id)))
-            
-        super().__init__(placeholder="Select Target Channel...", options=options)
-    
-    async def callback(self, inter: discord.Interaction):
-        target_ch = bot.get_channel(int(self.values[0]))
-        if target_ch:
-            view = FormatView(target_ch, self.content, self.attachments)
-            await inter.response.send_message(f"Selected: {target_ch.mention}\nAb format choose karein:", view=view, ephemeral=True)
+        for channel in channels[:25]: # Max 25 channels for Discord UI
+            options.append(discord.SelectOption(label=channel.name, value=str(channel.id)))
+        
+        super().__init__(placeholder="Select the target channel...", options=options)
 
-# --- [Events & Core Logic] ---
+    async def callback(self, interaction: discord.Interaction):
+        target_ch = bot.get_channel(int(self.values[0]))
+        view = MessageFormatView(target_ch, self.msg_content)
+        await interaction.response.send_message(f"Target: {target_ch.mention}. Choose Format:", view=view, ephemeral=True)
 
 @bot.event
 async def on_message(message):
-    if message.author == bot.user: return
-    
-    # Dashboard Logic
+    if message.author == bot.user:
+        return
+
+    # Master Control Logic for Admin Channel
     if message.channel.id == ADMIN_CONTROL_CHANNEL:
-        view = View().add_item(ChannelSel(message.content, message.attachments))
-        await message.reply("**NEXUS Media Dashboard**", view=view)
-        
+        view = View()
+        view.add_item(ChannelDropdown(message.content))
+        await message.reply("NEXUS Control Panel: Select a channel for delivery.", view=view)
+
     await bot.process_commands(message)
 
 @bot.event
 async def on_ready():
-    print(f'NEXUS SUPREME ONLINE.')
-    if not change_status.is_running():
-        change_status.start()
-
-@tasks.loop(seconds=20)
-async def change_status():
-    await bot.change_presence(activity=discord.Streaming(name="NEXUS | /help", url="https://twitch.tv/discord"))
-
-@bot.tree.command(name="help", description="Get Support")
-async def help_slash(interaction: discord.Interaction):
-    # Short help command for testing
-    await interaction.response.send_message("NEXUS Support is active. Use the dashboard for announcements.", ephemeral=True)
+    print(f'Logged in as {bot.user}')
 
 keep_alive()
 bot.run(TOKEN)
