@@ -34,13 +34,44 @@ def save_db(data):
 
 punishments = load_db()
 
+# --- [1] Persistent Punishment Logic ---
+class PunishDropdown(Select):
+    def __init__(self, user_id):
+        self.target_id = str(user_id)
+        options = [
+            discord.SelectOption(label="10 Minutes Timeout", value=f"10_{user_id}"),
+            discord.SelectOption(label="1 Hour Timeout", value=f"60_{user_id}"),
+            discord.SelectOption(label="12 Hours Timeout", value=f"720_{user_id}"),
+            discord.SelectOption(label="24 Hours Timeout", value=f"1440_{user_id}"),
+            discord.SelectOption(label="Permanent Ban", value=f"ban_{user_id}"),
+        ]
+        # Custom ID zaroori hai taaki interaction fail na ho
+        super().__init__(placeholder="Apply Punishment...", options=options, custom_id=f"punish_sel_{user_id}")
+
+    async def callback(self, interaction: discord.Interaction):
+        val_parts = self.values[0].split("_")
+        action = val_parts[0]
+        target_id = val_parts[1]
+
+        if action == "ban":
+            punishments[target_id] = {"type": "ban", "expiry": None}
+            res = f"User <@{target_id}> banned permanently."
+        else:
+            mins = int(action)
+            expiry = datetime.utcnow() + timedelta(minutes=mins)
+            punishments[target_id] = {"type": "timeout", "expiry": expiry.isoformat()}
+            res = f"User <@{target_id}> put on {mins}m timeout."
+        
+        save_db(punishments)
+        await interaction.response.send_message(f"✅ **Action:** {res}", ephemeral=True)
+
 class MyBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
         await self.tree.sync()
-        print(f"NEXUS System: Commands synced for {self.user}")
+        print(f"NEXUS System: Commands synced.")
 
 bot = MyBot()
 
@@ -62,10 +93,9 @@ def check_restriction(user_id):
                 save_db(punishments)
     return False, None
 
-# --- [1] Status & Rotating Activity ---
+# --- [2] Status & Rotating Activity ---
 @tasks.loop(seconds=10)
 async def change_status():
-    # Aapka purana rotating status loop (Purple Icon)
     status_list = [
         discord.Streaming(name="NEXUS Support | /help", url="https://www.twitch.tv/discord"),
         discord.Streaming(name="📩 Dm me for help", url="https://www.twitch.tv/discord"),
@@ -76,49 +106,25 @@ async def change_status():
         await bot.change_presence(activity=status)
         await asyncio.sleep(10)
 
-# --- [2] Support System (Modal & Punishment UI) ---
-class PunishDropdown(Select):
-    def __init__(self, user_id):
-        self.target_id = str(user_id)
-        options = [
-            discord.SelectOption(label="10 Minutes Timeout", value="10"),
-            discord.SelectOption(label="1 Hour Timeout", value="60"),
-            discord.SelectOption(label="12 Hours Timeout", value="720"),
-            discord.SelectOption(label="24 Hours Timeout", value="1440"),
-            discord.SelectOption(label="Permanent Ban", value="ban"),
-        ]
-        super().__init__(placeholder="Apply Punishment...", options=options)
-
-    async def callback(self, interaction: discord.Interaction):
-        if self.values[0] == "ban":
-            punishments[self.target_id] = {"type": "ban", "expiry": None}
-            res = "User banned permanently."
-        else:
-            mins = int(self.values[0])
-            expiry = datetime.utcnow() + timedelta(minutes=mins)
-            punishments[self.target_id] = {"type": "timeout", "expiry": expiry.isoformat()}
-            res = f"User timed out for {mins}m."
-        
-        save_db(punishments)
-        await interaction.response.send_message(f"Action: {res}", ephemeral=True)
-
+# --- [3] Support System ---
 class SupportModal(discord.ui.Modal, title='NEXUS Support Form'):
-    user_msg = discord.ui.TextInput(label='How can we help you?', style=discord.TextStyle.paragraph, placeholder='Describe in detail...', required=True, min_length=10)
+    user_msg = discord.ui.TextInput(label='How can we help you?', style=discord.TextStyle.paragraph, placeholder='Describe in detail...', required=True, min_length=5)
 
     async def on_submit(self, interaction: discord.Interaction):
         log_channel = bot.get_channel(LOG_CHANNEL_ID)
-        location = "Direct Message" if interaction.guild is None else f"Server: {interaction.guild.name}"
+        location = "DM" if interaction.guild is None else f"Server: {interaction.guild.name}"
         
         embed = discord.Embed(title="New Support Ticket", color=discord.Color.green())
-        embed.add_field(name="User", value=f"{interaction.user.mention} ({interaction.user.id})", inline=True)
+        embed.add_field(name="User", value=f"{interaction.user.mention} (`{interaction.user.id}`)", inline=True)
         embed.add_field(name="Source", value=location, inline=True)
         embed.add_field(name="Message", value=self.user_msg.value, inline=False)
         embed.set_thumbnail(url=interaction.user.display_avatar.url)
 
         if log_channel:
-            # Ticket ke niche punishment dropdown add kiya
-            await log_channel.send(embed=embed, view=View().add_item(PunishDropdown(interaction.user.id)))
-            await interaction.response.send_message("Sent to the NEXUS team.", ephemeral=True)
+            # Timeout=None se interaction fail nahi hoga
+            view = View(timeout=None).add_item(PunishDropdown(interaction.user.id))
+            await log_channel.send(embed=embed, view=view)
+            await interaction.response.send_message("Sent to NEXUS team.", ephemeral=True)
 
 class HelpView(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
@@ -129,48 +135,49 @@ class HelpView(discord.ui.View):
         await interaction.response.send_modal(SupportModal())
 
 @bot.tree.command(name="help", description="Get professional support")
-@app_commands.allowed_contexts(guilds=True, dms=True, private_channels=True)
-@app_commands.allowed_installs(guilds=True, users=True)
 async def help_slash(interaction: discord.Interaction):
     restricted, reason = check_restriction(interaction.user.id)
     if restricted: return await interaction.response.send_message(f"Access Denied: {reason}", ephemeral=True)
     
-    embed = discord.Embed(title="NEXUS | Professional Support", description="Click below to contact our staff.", color=discord.Color.blue())
+    embed = discord.Embed(
+        title="NEXUS | Professional Support Portal", 
+        description=(
+            "👋 **Welcome to NEXUS Support.**\n\n"
+            "We provide high-speed automated assistance to bridge the gap "
+            "between users and creators. Our team is available 24/7.\n\n"
+            "**Guidelines:**\n"
+            "• Be clear and descriptive in your message.\n"
+            "• Do not spam the support system.\n"
+            "• Staff will respond as soon as possible."
+        ), 
+        color=discord.Color.blue()
+    )
+    embed.set_thumbnail(url=bot.user.display_avatar.url)
+    embed.set_footer(text="Excellence in Service • Powered by NEXUS™")
     await interaction.response.send_message(embed=embed, view=HelpView())
 
-# --- [3] Management Panel (Unban/Un-timeout) ---
+# --- [4] Management Panel ---
 @bot.tree.command(name="list_punishments", description="Manage restricted users")
 async def list_punishments(interaction: discord.Interaction):
     if interaction.channel_id != ADMIN_CONTROL_CHANNEL:
-        return await interaction.response.send_message("❌ Admin only.", ephemeral=True)
+        return await interaction.response.send_message("❌ Admin Only.", ephemeral=True)
 
     data = load_db()
     if not data: return await interaction.response.send_message("✅ No active punishments.", ephemeral=True)
 
-    options = []
-    for uid, info in data.items():
-        status = "Banned" if info["type"] == "ban" else "Timeout"
-        options.append(discord.SelectOption(label=f"ID: {uid}", description=f"Status: {status}", value=uid))
-
-    select = Select(placeholder="Select user to remove punishment...", options=options)
+    options = [discord.SelectOption(label=f"ID: {uid}", value=uid) for uid in list(data.keys())[:25]]
+    select = Select(placeholder="Select user to clear...", options=options)
 
     async def select_callback(inter: discord.Interaction):
-        target_id = select.values[0]
-        unban_btn = Button(label="Remove Punishment", style=discord.ButtonStyle.success)
-
-        async def unban_click(i: discord.Interaction):
-            data.pop(target_id, None)
-            save_db(data)
-            await i.response.send_message(f"✅ Cleared user `{target_id}`", ephemeral=True)
-
-        unban_btn.callback = unban_click
-        view = View().add_item(unban_btn)
-        await inter.response.send_message(f"Managing `{target_id}`", view=view, ephemeral=True)
+        target = select.values[0]
+        data.pop(target, None)
+        save_db(data)
+        await inter.response.send_message(f"✅ User `{target}` cleared.", ephemeral=True)
 
     select.callback = select_callback
-    await interaction.response.send_message("NEXUS Management Panel", view=View().add_item(select), ephemeral=True)
+    await interaction.response.send_message("**NEXUS Management Panel**\nRemove bans or timeouts below:", view=View().add_item(select), ephemeral=True)
 
-# --- [4] Master Control Panel (Purana Logic) ---
+# --- [5] Admin Control Panel ---
 class MessageFormatView(View):
     def __init__(self, target_channel, content):
         super().__init__(timeout=60)
@@ -206,13 +213,18 @@ class ChannelDropdown(Select):
 async def on_message(message):
     if message.author == bot.user: return
     if message.channel.id == ADMIN_CONTROL_CHANNEL:
-        await message.reply("NEXUS Panel:", view=View().add_item(ChannelDropdown(message.content)))
+        description_text = (
+            "**NEXUS Master Control Panel**\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "Select a destination channel to deliver your message. "
+            "You can choose between **Normal Text** or **Professional Embed** format."
+        )
+        await message.reply(description_text, view=View().add_item(ChannelDropdown(message.content)))
     await bot.process_commands(message)
 
-# --- [5] Ready & Start ---
 @bot.event
 async def on_ready():
-    print(f'NEXUS Online: {bot.user}')
+    print(f'NEXUS System Online.')
     if not change_status.is_running(): change_status.start()
 
 keep_alive()
