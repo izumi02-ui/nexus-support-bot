@@ -3,26 +3,28 @@ from discord.ext import commands
 from discord import app_commands
 import os
 from keep_alive import keep_alive
+from discord.ui import Select, View, Button
 
-# Bot Setup
+# --- Bot Setup ---
 TOKEN = os.environ.get("DISCORD_TOKEN")
-LOG_CHANNEL_ID = 1477923902834475080 # Jo ID tumne di thi
+LOG_CHANNEL_ID = 1477923902834475080 # Tickets ke liye
+ADMIN_CONTROL_CHANNEL = 1477954227442679910 # Isme Panel chalega
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.guilds = True
 
 class MyBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # Slash commands ko register karne ke liye
         await self.tree.sync()
         print(f"Synced slash commands for {self.user}")
 
 bot = MyBot()
 
-# --- Modal (Pop-up Form) Logic ---
+# --- [1] Support System (Tickets) ---
 class SupportModal(discord.ui.Modal, title='NEXUS Support Form'):
     user_msg = discord.ui.TextInput(
         label='How can we help you?',
@@ -34,8 +36,6 @@ class SupportModal(discord.ui.Modal, title='NEXUS Support Form'):
 
     async def on_submit(self, interaction: discord.Interaction):
         log_channel = bot.get_channel(LOG_CHANNEL_ID)
-        
-        # User Info Embed for Admin
         embed = discord.Embed(title="📩 New Support Ticket", color=discord.Color.green())
         embed.add_field(name="User", value=f"{interaction.user.mention} ({interaction.user.name})", inline=True)
         embed.add_field(name="User ID", value=interaction.user.id, inline=True)
@@ -44,11 +44,10 @@ class SupportModal(discord.ui.Modal, title='NEXUS Support Form'):
 
         if log_channel:
             await log_channel.send(embed=embed)
-            await interaction.response.send_message("Your message has been sent to the NEXUS team! We will get back to you soon.", ephemeral=True)
+            await interaction.response.send_message("Sent to NEXUS team!", ephemeral=True)
         else:
-            await interaction.response.send_message("Error: Log channel not found. Please contact admin.", ephemeral=True)
+            await interaction.response.send_message("Error: Log channel not found!", ephemeral=True)
 
-# --- Button Logic ---
 class HelpView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -57,25 +56,62 @@ class HelpView(discord.ui.View):
     async def contact_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(SupportModal())
 
-# --- Slash Command (/help) ---
 @bot.tree.command(name="help", description="Get professional support from NEXUS Team")
 async def help_slash(interaction: discord.Interaction):
-    description = (
-        "**Welcome to NEXUS Support™**\n\n"
-        "We are dedicated to providing seamless assistance and top-tier solutions "
-        "for all your queries. Our automated system ensures your concerns reach "
-        "our experts instantly.\n\n"
-        "**Click the button below to submit your request.**"
-    )
-    embed = discord.Embed(
-        title="NEXUS | Professional Support Portal",
-        description=description,
-        color=discord.Color.blue()
-    )
-    embed.set_footer(text="NEXUS Support - Excellence in Service")
-    embed.set_thumbnail(url=bot.user.display_avatar.url)
-    
+    embed = discord.Embed(title="NEXUS | Professional Support Portal", color=discord.Color.blue())
     await interaction.response.send_message(embed=embed, view=HelpView())
+
+# --- [2] Master Control Panel (Dropdown & Buttons) ---
+
+class MessageFormatView(View):
+    """Buttons to choose Normal or Embed message"""
+    def __init__(self, target_channel, content):
+        super().__init__(timeout=60)
+        self.target_channel = target_channel
+        self.content = content
+
+    @discord.ui.button(label="Normal Text", style=discord.ButtonStyle.secondary, emoji="📝")
+    async def send_normal(self, interaction: discord.Interaction, button: Button):
+        await self.target_channel.send(self.content)
+        await interaction.response.send_message(f"✅ Sent to {self.target_channel.mention}", ephemeral=True)
+
+    @discord.ui.button(label="Embed Message", style=discord.ButtonStyle.success, emoji="💎")
+    async def send_embed(self, interaction: discord.Interaction, button: Button):
+        embed = discord.Embed(description=self.content, color=discord.Color.blue())
+        embed.set_author(name="NEXUS Support™", icon_url=bot.user.display_avatar.url)
+        await self.target_channel.send(embed=embed)
+        await interaction.response.send_message(f"✅ Embed sent to {self.target_channel.mention}", ephemeral=True)
+
+class ChannelDropdown(Select):
+    """Dropdown to list server channels"""
+    def __init__(self, content):
+        self.msg_content = content
+        options = []
+        # Pehle 25 text channels fetch karega
+        channels = [c for c in bot.get_all_channels() if isinstance(c, discord.TextChannel)]
+        for channel in channels[:25]:
+            options.append(discord.SelectOption(label=channel.name, value=str(channel.id), emoji="📁"))
+        
+        super().__init__(placeholder="Kahan bhejna hai? Channel chuno...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        target_ch = bot.get_channel(int(self.values[0]))
+        view = MessageFormatView(target_ch, self.msg_content)
+        await interaction.response.send_message(f"📍 Target: {target_ch.mention}\nAb format chuno:", view=view, ephemeral=True)
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+
+    # Master Control Logic
+    if message.channel.id == ADMIN_CONTROL_CHANNEL:
+        # Bas normal message type karo, bot dropdown dikha dega
+        view = View()
+        view.add_item(ChannelDropdown(message.content))
+        await message.reply("🚀 **NEXUS Control Panel**\nChannel select karein:", view=view)
+
+    await bot.process_commands(message)
 
 @bot.event
 async def on_ready():
