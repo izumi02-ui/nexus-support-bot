@@ -190,32 +190,25 @@ class FormatView(View):
         self.files = files or []
 
     async def resend_files(self):
-        """Asli files ko memory buffer se re-upload ke liye taiyar karna"""
         new_files = []
         for attachment in self.files:
             try:
-                # Attachment ko download karke re-uploadable format mein convert karna
-                file_data = await attachment.read()
-                new_files.append(discord.File(io.BytesIO(file_data), filename=attachment.filename))
-            except Exception as e:
-                print(f"Error processing file {attachment.filename}: {e}")
+                file = await attachment.to_file()
+                new_files.append(file)
+            except:
+                pass
         return new_files
 
     @discord.ui.button(label="Normal", style=discord.ButtonStyle.secondary)
     async def normal(self, inter: discord.Interaction, btn: Button):
         await inter.response.defer(ephemeral=True)
-        
-        # Files taiyar karo
-        files_to_send = await self.resend_files()
-        
-        # Message bhej do (Files ke saath)
-        await self.ch.send(
-            content=self.content if self.content else None, 
-            files=files_to_send if files_to_send else None
-        )
+
+        files = await self.resend_files()
+        await self.ch.send(content=self.content if self.content else None, files=files if files else None)
+
         await inter.followup.send("✅ Sent as Normal Message.", ephemeral=True)
 
-    @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
+        @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
     async def embed(self, inter: discord.Interaction, btn: Button):
         await inter.response.defer(ephemeral=True)
 
@@ -225,21 +218,20 @@ class FormatView(View):
         )
         embed.set_author(name="NEXUS Announcement", icon_url=bot.user.display_avatar.url)
 
-        # Files taiyar karo
-        files_to_send = await self.resend_files()
+        files = await self.resend_files()
 
-        # Image Embed logic
+        # --- FIX STARTS HERE ---
         if self.files:
             for attachment in self.files:
-                if any(attachment.filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]):
-                    # attachment:// protocol use karke image embed mein dikhayenge
+                if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                    # Hum image ko 'attachment://filename.png' ke format mein set karenge
                     embed.set_image(url=f"attachment://{attachment.filename}")
                     break 
+        # --- FIX ENDS HERE ---
 
-        # Files aur Embed ko ek saath bhejna compulsory hai
-        await self.ch.send(embed=embed, files=files_to_send if files_to_send else None)
+        # Files aur Embed ko ek saath bhejna zaruri hai
+        await self.ch.send(embed=embed, files=files if files else None)
         await inter.followup.send("✅ Sent as Embed with Image.", ephemeral=True)
-
 
 
 class ChannelSel(Select):
