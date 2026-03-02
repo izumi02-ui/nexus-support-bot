@@ -182,36 +182,52 @@ async def help_slash(interaction: discord.Interaction):
 
 # --- [4] Admin Dashboard & Media Support ---
 
-class FormatView(View):
+class class FormatView(View):
     def __init__(self, ch, content, files):
-        super().__init__(timeout=60); self.ch, self.content, self.files = ch, content, files
-    
+        super().__init__(timeout=120)
+        self.ch = ch
+        self.content = content or ""
+        self.files = files or []
+
+    async def resend_files(self):
+        new_files = []
+        for attachment in self.files:
+            try:
+                file = await attachment.to_file()
+                new_files.append(file)
+            except:
+                pass
+        return new_files
+
     @discord.ui.button(label="Normal", style=discord.ButtonStyle.secondary)
-    async def normal(self, inter, btn):
+    async def normal(self, inter: discord.Interaction, btn: Button):
         await inter.response.defer(ephemeral=True)
-        # Fix: Re-fetching files correctly
-        fs = [await f.to_file() for f in self.files]
-        await self.ch.send(self.content, files=fs)
-        await inter.followup.send("Sent.", ephemeral=True)
+
+        files = await self.resend_files()
+        await self.ch.send(content=self.content if self.content else None, files=files if files else None)
+
+        await inter.followup.send("✅ Sent as Normal Message.", ephemeral=True)
 
     @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
-    async def embed(self, inter, btn):
+    async def embed(self, inter: discord.Interaction, btn: Button):
         await inter.response.defer(ephemeral=True)
-        e = discord.Embed(description=self.content, color=discord.Color.blue())
-        e.set_author(name="NEXUS Announcement", icon_url=bot.user.display_avatar.url)
-        
-        # FIX: GIF/Image preview logic
-        fs = []
-        if self.files:
-            for f in self.files:
-                # Agar attachment hai toh use proxy_url se embed mein set karo
-                if any(ext in f.filename.lower() for ext in ['.jpg', '.png', '.jpeg', '.gif', '.webp']):
-                    e.set_image(url=f.url)
-            fs = [await f.to_file() for f in self.files]
 
-        # Fix: Send files AND embed together
-        await self.ch.send(embed=e, files=fs)
-        await inter.followup.send("Embed Sent.", ephemeral=True)
+        embed = discord.Embed(
+            description=self.content if self.content else "‎",
+            color=discord.Color.blue()
+        )
+        embed.set_author(name="NEXUS Announcement", icon_url=bot.user.display_avatar.url)
+
+        files = await self.resend_files()
+
+        # Auto image preview
+        for attachment in self.files:
+            if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                embed.set_image(url=attachment.url)
+                break
+
+        await self.ch.send(embed=embed, files=files if files else None)
+        await inter.followup.send("✅ Sent as Embed.", ephemeral=True)
 
 class ChannelSel(Select):
     def __init__(self, content, attachments):
