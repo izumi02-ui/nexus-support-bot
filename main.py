@@ -182,7 +182,7 @@ async def help_slash(interaction: discord.Interaction):
 
 # --- [4] Admin Dashboard & Media Support ---
 
-class class FormatView(View):
+class FormatView(View):
     def __init__(self, ch, content, files):
         super().__init__(timeout=120)
         self.ch = ch
