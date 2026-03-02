@@ -52,17 +52,23 @@ async def user_info(interaction: discord.Interaction, member: discord.Member = N
     embed.add_field(name="ID", value=f"`{member.id}`", inline=True)
     embed.add_field(name="Account Created", value=member.created_at.strftime("%d %b %Y"), inline=False)
     embed.add_field(name="Joined Server", value=member.joined_at.strftime("%d %b %Y"), inline=False)
-    embed.add_field(name=f"Roles [{len(roles)}]", value=" ".join(roles) if roles else "None", inline=False)
+    embed.add_field(name=f"Roles [{len(roles)}]", value=" ".join(roles[:10]) if roles else "None", inline=False)
     await interaction.response.send_message(embed=embed)
 
 @bot.tree.command(name="join", description="Connect bot to your VC")
 @app_commands.checks.has_permissions(administrator=True)
 async def join(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True) # Fix: Interaction did not respond
+    await interaction.response.defer(ephemeral=True) # Yeh interaction ko zinda rakhta hai
     if interaction.user.voice:
         channel = interaction.user.voice.channel
-        await channel.connect()
-        await interaction.followup.send(f"✅ Successfully joined **{channel.name}**")
+        try:
+            if interaction.guild.voice_client:
+                await interaction.guild.voice_client.move_to(channel)
+            else:
+                await channel.connect()
+            await interaction.followup.send(f"✅ Successfully joined **{channel.name}**")
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error: {e}")
     else:
         await interaction.followup.send("❌ Join a VC first!")
 
@@ -180,18 +186,28 @@ class FormatView(View):
     
     @discord.ui.button(label="Normal", style=discord.ButtonStyle.secondary)
     async def normal(self, inter, btn):
-        # Media Support: Sending files along with text
+        await inter.response.defer(ephemeral=True)
         sent_files = [await f.to_file() for f in self.files]
         await self.ch.send(self.content, files=sent_files)
-        await inter.response.send_message("Sent.", ephemeral=True)
+        await inter.followup.send("Sent.", ephemeral=True)
 
     @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
     async def embed(self, inter, btn):
+        await inter.response.defer(ephemeral=True)
         e = discord.Embed(description=self.content, color=discord.Color.blue())
         e.set_author(name="NEXUS Announcement", icon_url=bot.user.display_avatar.url)
-        sent_files = [await f.to_file() for f in self.files]
-        await self.ch.send(embed=e, files=sent_files)
-        await inter.response.send_message("Embed Sent.", ephemeral=True)
+        
+        # Fixing Embed Image: Agar image hai toh use embed ke andar dalna
+        sent_files = []
+        if self.files:
+            for f in self.files:
+                if any(ext in f.url.lower() for ext in ['.jpg', '.png', '.jpeg', '.gif']):
+                    e.set_image(url=f.url)
+                    break
+            sent_files = [await f.to_file() for f in self.files]
+
+        await self.ch.send(embed=e, files=sent_files if not e.image else [])
+        await inter.followup.send("Embed Sent.", ephemeral=True)
 
 class ChannelSel(Select):
     def __init__(self, content, attachments):
@@ -208,19 +224,19 @@ class ChannelSel(Select):
 async def on_message(message):
     if message.author == bot.user: return
     if message.channel.id == ADMIN_CONTROL_CHANNEL:
-        # Pass attachments to the selector
         await message.reply("**NEXUS Dashboard**", view=View().add_item(ChannelSel(message.content, message.attachments)))
     await bot.process_commands(message)
 
 @bot.event
 async def on_ready():
-    print(f'NEXUS SUPREME ONLINE.'); change_status.start()
+    print(f'NEXUS SUPREME ONLINE.'); 
+    if not change_status.is_running():
+        change_status.start()
 
 @tasks.loop(seconds=20)
 async def change_status():
-    status_list = [discord.Streaming(name="NEXUS | /help", url="https://twitch.tv/discord")]
-    for s in status_list:
-        await bot.change_presence(activity=s); await asyncio.sleep(20)
+    status = discord.Streaming(name="NEXUS | /help", url="https://twitch.tv/discord")
+    await bot.change_presence(activity=status)
 
 keep_alive()
 bot.run(TOKEN)
