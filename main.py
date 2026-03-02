@@ -62,14 +62,12 @@ async def join(interaction: discord.Interaction):
     if interaction.user.voice:
         channel = interaction.user.voice.channel
         try:
-            # FIX: PyNaCl error handle karne ke liye try block
             if interaction.guild.voice_client:
                 await interaction.guild.voice_client.move_to(channel)
             else:
                 await channel.connect(timeout=20.0, reconnect=True)
             await interaction.followup.send(f"✅ Successfully joined **{channel.name}**")
         except Exception as e:
-            # Screenshot fix: PyNaCl instruction
             await interaction.followup.send(f"❌ Voice Error: Please run `pip install pynacl` in your console.\nDetails: {e}")
     else:
         await interaction.followup.send("❌ Join a VC first!")
@@ -83,7 +81,7 @@ async def leave(interaction: discord.Interaction):
     else:
         await interaction.response.send_message("❌ Not in a VC.", ephemeral=True)
 
-@bot.tree.command(name="clear", description="Delete messages (e.g. 10)")
+@bot.tree.command(name="clear", description="Delete messages")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def clear(interaction: discord.Interaction, amount: int):
     await interaction.response.defer(ephemeral=True)
@@ -98,7 +96,6 @@ class PunishDropdown(Select):
         options = [
             discord.SelectOption(label="10m Timeout", value=f"10_{user_id}"),
             discord.SelectOption(label="1h Timeout", value=f"60_{user_id}"),
-            discord.SelectOption(label="12h Timeout", value=f"720_{user_id}"),
             discord.SelectOption(label="24h Timeout", value=f"1440_{user_id}"),
             discord.SelectOption(label="Permanent Ban", value=f"ban_{user_id}"),
         ]
@@ -117,36 +114,6 @@ class PunishDropdown(Select):
             res = f"User <@{target_id}> timed out for {mins}m."
         save_db(punishments)
         await interaction.response.send_message(f"✅ {res}", ephemeral=True)
-
-@bot.tree.command(name="list_punishments", description="Manage banned/timeout users")
-@app_commands.checks.has_permissions(administrator=True)
-async def list_punishments(interaction: discord.Interaction):
-    data = load_db()
-    if not data: return await interaction.response.send_message("✅ No restrictions found.", ephemeral=True)
-    
-    options = [discord.SelectOption(label=f"ID: {uid}", value=uid, description=f"Type: {info['type']}") for uid, info in list(data.items())[:25]]
-    select = Select(placeholder="Choose user to release...", options=options)
-
-    async def select_callback(inter):
-        data.pop(select.values[0], None)
-        save_db(data)
-        await inter.response.send_message(f"✅ User `{select.values[0]}` restrictions cleared.", ephemeral=True)
-
-    select.callback = select_callback
-    await interaction.response.send_message("NEXUS Security Management", view=View().add_item(select), ephemeral=True)
-
-def check_restriction(user_id):
-    uid = str(user_id)
-    if uid in punishments:
-        data = punishments[uid]
-        if data["type"] == "ban": return True, "Permanent Ban"
-        if data["type"] == "timeout":
-            expiry = datetime.fromisoformat(data["expiry"])
-            if datetime.utcnow() < expiry:
-                return True, f"Timeout ({int((expiry - datetime.utcnow()).total_seconds() / 60)}m left)"
-            else:
-                del punishments[uid]; save_db(punishments)
-    return False, None
 
 # --- [3] Help Portal ---
 
@@ -170,24 +137,16 @@ class HelpView(discord.ui.View):
 
 @bot.tree.command(name="help", description="NEXUS Portal")
 async def help_slash(interaction: discord.Interaction):
-    res, reason = check_restriction(interaction.user.id)
-    if res: return await interaction.response.send_message(f"❌ Denied: {reason}", ephemeral=True)
-    
     embed = discord.Embed(title="NEXUS | Professional Support", color=discord.Color.blue())
-    embed.add_field(name="Welcome to NEXUS Support Portal™", 
-                    value="We provide high-end assistance and automated solutions for your queries. Click the button below to submit your ticket directly to our staff.", 
-                    inline=False)
-    embed.set_footer(text="Excellence in Service")
+    embed.add_field(name="Support Portal™", value="Click the button below to submit your ticket.", inline=False)
     await interaction.response.send_message(embed=embed, view=HelpView())
 
-# --- [4] Admin Dashboard & Media Support ---
+# --- [4] Admin Dashboard (Fixed Formatting) ---
 
 class FormatView(View):
     def __init__(self, ch, content, files):
         super().__init__(timeout=120)
-        self.ch = ch
-        self.content = content or ""
-        self.files = files or []
+        self.ch, self.content, self.files = ch, content, files
 
     async def resend_files(self):
         new_files = []
@@ -195,50 +154,38 @@ class FormatView(View):
             try:
                 file = await attachment.to_file()
                 new_files.append(file)
-            except:
-                pass
+            except: pass
         return new_files
 
     @discord.ui.button(label="Normal", style=discord.ButtonStyle.secondary)
     async def normal(self, inter: discord.Interaction, btn: Button):
         await inter.response.defer(ephemeral=True)
-
         files = await self.resend_files()
-        await self.ch.send(content=self.content if self.content else None, files=files if files else None)
-
+        await self.ch.send(content=self.content or None, files=files or None)
         await inter.followup.send("✅ Sent as Normal Message.", ephemeral=True)
 
-        @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
     async def embed(self, inter: discord.Interaction, btn: Button):
         await inter.response.defer(ephemeral=True)
-
-        embed = discord.Embed(
-            description=self.content if self.content else "‎",
-            color=discord.Color.blue()
-        )
+        embed = discord.Embed(description=self.content or "‎", color=discord.Color.blue())
         embed.set_author(name="NEXUS Announcement", icon_url=bot.user.display_avatar.url)
-
+        
         files = await self.resend_files()
-
-        # --- FIX STARTS HERE ---
+        
+        # Image attachment logic (Fixed!)
         if self.files:
             for attachment in self.files:
-                if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
-                    # Hum image ko 'attachment://filename.png' ke format mein set karenge
+                if any(attachment.filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]):
                     embed.set_image(url=f"attachment://{attachment.filename}")
-                    break 
-        # --- FIX ENDS HERE ---
+                    break
 
-        # Files aur Embed ko ek saath bhejna zaruri hai
-        await self.ch.send(embed=embed, files=files if files else None)
+        await self.ch.send(embed=embed, files=files or None)
         await inter.followup.send("✅ Sent as Embed with Image.", ephemeral=True)
-
 
 class ChannelSel(Select):
     def __init__(self, content, attachments):
         self.c, self.a = content, attachments
-        channels = [c for c in bot.get_all_channels() if isinstance(c, discord.TextChannel)]
-        options = [discord.SelectOption(label=f"#{c.name}", value=str(c.id)) for c in channels[:25]]
+        options = [discord.SelectOption(label=f"#{c.name}", value=str(c.id)) for c in bot.get_all_channels() if isinstance(c, discord.TextChannel)][:25]
         super().__init__(placeholder="Select channel...", options=options)
     
     async def callback(self, inter):
@@ -254,14 +201,12 @@ async def on_message(message):
 
 @bot.event
 async def on_ready():
-    print(f'NEXUS SUPREME ONLINE.'); 
-    if not change_status.is_running():
-        change_status.start()
+    print(f'NEXUS SUPREME ONLINE.')
+    if not change_status.is_running(): change_status.start()
 
 @tasks.loop(seconds=20)
 async def change_status():
-    status = discord.Streaming(name="NEXUS | /help", url="https://twitch.tv/discord")
-    await bot.change_presence(activity=status)
+    await bot.change_presence(activity=discord.Streaming(name="NEXUS | /help", url="https://twitch.tv/discord"))
 
 keep_alive()
 bot.run(TOKEN)
