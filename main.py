@@ -182,50 +182,64 @@ async def help_slash(interaction: discord.Interaction):
 
 # --- [4] Admin Dashboard & Media Support ---
 
-class NEXUSMediaHandler:
-    @staticmethod
-    async def get_attachments(message):
-        """Message se saari photos aur files ko memory mein save karne ke liye"""
-        files = []
-        for attachment in message.attachments:
-            # File ko download karke BytesIO mein rakhna taaki dobara bhej sakein
-            file_data = await attachment.read()
-            files.append(discord.File(io.BytesIO(file_data), filename=attachment.filename))
-        return files
+class FormatView(View):
+    def __init__(self, ch, content, files):
+        super().__init__(timeout=120)
+        self.ch = ch
+        self.content = content or ""
+        self.files = files or []
 
-class MessageFormatView(View):
-    def __init__(self, target_channel, message):
-        super().__init__(timeout=60)
-        self.target_channel = target_channel
-        self.content = message.content
-        self.message = message # Asli message store karna attachments ke liye
+    async def resend_files(self):
+        """Asli files ko memory buffer se re-upload ke liye taiyar karna"""
+        new_files = []
+        for attachment in self.files:
+            try:
+                # Attachment ko download karke re-uploadable format mein convert karna
+                file_data = await attachment.read()
+                new_files.append(discord.File(io.BytesIO(file_data), filename=attachment.filename))
+            except Exception as e:
+                print(f"Error processing file {attachment.filename}: {e}")
+        return new_files
 
-    @discord.ui.button(label="Normal Text/Media", style=discord.ButtonStyle.secondary)
-    async def send_normal(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.defer(ephemeral=True)
-        # Attachments fetch karna
-        files = await NEXUSMediaHandler.get_attachments(self.message)
+    @discord.ui.button(label="Normal", style=discord.ButtonStyle.secondary)
+    async def normal(self, inter: discord.Interaction, btn: Button):
+        await inter.response.defer(ephemeral=True)
         
-        await self.target_channel.send(content=self.content if self.content else None, files=files)
-        await interaction.followup.send(f"✅ Delivered to {self.target_channel.mention}", ephemeral=True)
-
-    @discord.ui.button(label="Embed Message", style=discord.ButtonStyle.success)
-    async def send_embed(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.defer(ephemeral=True)
+        # Files taiyar karo
+        files_to_send = await self.resend_files()
         
-        embed = discord.Embed(description=self.content or "‎", color=discord.Color.blue())
-        embed.set_author(name="NEXUS Support™", icon_url=bot.user.display_avatar.url)
-        
-        files = await NEXUSMediaHandler.get_attachments(self.message)
+        # Message bhej do (Files ke saath)
+        await self.ch.send(
+            content=self.content if self.content else None, 
+            files=files_to_send if files_to_send else None
+        )
+        await inter.followup.send("✅ Sent as Normal Message.", ephemeral=True)
 
-        # Agar message mein photo hai, toh usse Embed ki main image banana
-        if self.message.attachments:
-            first_attach = self.message.attachments[0]
-            if any(ext in first_attach.filename.lower() for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
-                embed.set_image(url=f"attachment://{first_attach.filename}")
+    @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
+    async def embed(self, inter: discord.Interaction, btn: Button):
+        await inter.response.defer(ephemeral=True)
 
-        await self.target_channel.send(embed=embed, files=files)
-        await interaction.followup.send(f"✅ Embed delivered to {self.target_channel.mention}", ephemeral=True)
+        embed = discord.Embed(
+            description=self.content if self.content else "‎",
+            color=discord.Color.blue()
+        )
+        embed.set_author(name="NEXUS Announcement", icon_url=bot.user.display_avatar.url)
+
+        # Files taiyar karo
+        files_to_send = await self.resend_files()
+
+        # Image Embed logic
+        if self.files:
+            for attachment in self.files:
+                if any(attachment.filename.lower().endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".gif", ".webp"]):
+                    # attachment:// protocol use karke image embed mein dikhayenge
+                    embed.set_image(url=f"attachment://{attachment.filename}")
+                    break 
+
+        # Files aur Embed ko ek saath bhejna compulsory hai
+        await self.ch.send(embed=embed, files=files_to_send if files_to_send else None)
+        await inter.followup.send("✅ Sent as Embed with Image.", ephemeral=True)
+
 
 
 class ChannelSel(Select):
