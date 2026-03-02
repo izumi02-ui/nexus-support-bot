@@ -14,11 +14,8 @@ LOG_CHANNEL_ID = 1477923902834475080
 ADMIN_CONTROL_CHANNEL = 1477954227442679910 
 DB_FILE = "punishments.json"
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.guilds = True
-intents.members = True 
-intents.voice_states = True 
+# Saare permissions on kar diye taaki koi feature miss na ho
+intents = discord.Intents.all()
 
 # --- [Database Logic] ---
 def load_db():
@@ -45,7 +42,48 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# --- [1] Security & Punishment System ---
+# --- [1] Janam Kundli & Utility Commands ---
+
+@bot.tree.command(name="user_info", description="User ki poori janam kundli nikalen")
+async def user_info(interaction: discord.Interaction, member: discord.Member = None):
+    member = member or interaction.user
+    roles = [role.mention for role in reversed(member.roles) if role.name != "@everyone"]
+    embed = discord.Embed(title=f"👤 User Biodata: {member.name}", color=discord.Color.blue())
+    embed.set_thumbnail(url=member.display_avatar.url)
+    embed.add_field(name="ID", value=f"`{member.id}`", inline=True)
+    embed.add_field(name="Account Created", value=member.created_at.strftime("%d %b %Y"), inline=False)
+    embed.add_field(name="Joined Server", value=member.joined_at.strftime("%d %b %Y"), inline=False)
+    embed.add_field(name=f"Roles [{len(roles)}]", value=" ".join(roles) if roles else "None", inline=False)
+    await interaction.response.send_message(embed=embed)
+
+@bot.tree.command(name="join", description="Connect bot to your VC")
+@app_commands.checks.has_permissions(administrator=True)
+async def join(interaction: discord.Interaction):
+    if interaction.user.voice:
+        channel = interaction.user.voice.channel
+        await channel.connect()
+        await interaction.response.send_message(f"✅ Joined **{channel.name}**", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Join a VC first!", ephemeral=True)
+
+@bot.tree.command(name="leave", description="Disconnect bot from VC")
+@app_commands.checks.has_permissions(administrator=True)
+async def leave(interaction: discord.Interaction):
+    if interaction.guild.voice_client:
+        await interaction.guild.voice_client.disconnect()
+        await interaction.response.send_message("🔌 Disconnected.", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Not in a VC.", ephemeral=True)
+
+@bot.tree.command(name="clear", description="Delete messages (e.g. 10)")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def clear(interaction: discord.Interaction, amount: int):
+    await interaction.response.defer(ephemeral=True)
+    deleted = await interaction.channel.purge(limit=amount)
+    await interaction.followup.send(f"🧹 Deleted `{len(deleted)}` messages.", ephemeral=True)
+
+# --- [2] Security & Punishment System ---
+
 class PunishDropdown(Select):
     def __init__(self, user_id):
         self.target_id = str(user_id)
@@ -56,7 +94,7 @@ class PunishDropdown(Select):
             discord.SelectOption(label="24h Timeout", value=f"1440_{user_id}"),
             discord.SelectOption(label="Permanent Ban", value=f"ban_{user_id}"),
         ]
-        super().__init__(placeholder="Security Actions...", options=options, custom_id=f"p_sel_{user_id}")
+        super().__init__(placeholder="Apply Punishment...", options=options, custom_id=f"p_sel_{user_id}")
 
     async def callback(self, interaction: discord.Interaction):
         val = self.values[0].split("_")
@@ -85,96 +123,41 @@ def check_restriction(user_id):
                 del punishments[uid]; save_db(punishments)
     return False, None
 
-# --- [2] Janam Kundli & Utility Commands ---
-
-@bot.tree.command(name="user_info", description="User ki poori janam kundli nikalen")
-async def user_info(interaction: discord.Interaction, member: discord.Member = None):
-    member = member or interaction.user
-    roles = [role.mention for role in reversed(member.roles) if role.name != "@everyone"]
-    
-    embed = discord.Embed(title=f"👤 User Biodata: {member.name}", color=discord.Color.blue())
-    embed.set_thumbnail(url=member.display_avatar.url)
-    embed.add_field(name="ID", value=f"`{member.id}`", inline=True)
-    embed.add_field(name="Nickname", value=member.display_name, inline=True)
-    embed.add_field(name="Account Created", value=member.created_at.strftime("%d %b %Y"), inline=False)
-    embed.add_field(name="Joined Server", value=member.joined_at.strftime("%d %b %Y"), inline=False)
-    embed.add_field(name=f"Roles [{len(roles)}]", value=" ".join(roles) if roles else "No Roles", inline=False)
-    embed.set_footer(text=f"Requested by {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
-    await interaction.response.send_message(embed=embed)
-
-@bot.tree.command(name="list_punishments", description="Manage banned/timeout users")
-@app_commands.checks.has_permissions(administrator=True)
-async def list_punishments(interaction: discord.Interaction):
-    if interaction.channel_id != ADMIN_CONTROL_CHANNEL:
-        return await interaction.response.send_message("❌ Admin Only.", ephemeral=True)
-    data = load_db()
-    if not data: return await interaction.response.send_message("✅ No restrictions found.", ephemeral=True)
-    
-    options = [discord.SelectOption(label=f"ID: {uid}", value=uid, description=f"Type: {info['type']}") for uid, info in list(data.items())[:25]]
-    select = Select(placeholder="Choose user to unban...", options=options)
-
-    async def select_callback(inter):
-        data.pop(select.values[0], None)
-        save_db(data)
-        await inter.response.send_message(f"✅ User `{select.values[0]}` freed.", ephemeral=True)
-
-    select.callback = select_callback
-    await interaction.response.send_message("NEXUS Management Panel", view=View().add_item(select), ephemeral=True)
-
-@bot.tree.command(name="join", description="Connect bot to VC")
-@app_commands.checks.has_permissions(administrator=True)
-async def join(interaction: discord.Interaction):
-    if interaction.user.voice:
-        await interaction.user.voice.channel.connect()
-        await interaction.response.send_message("Connected to VC.", ephemeral=True)
-    else: await interaction.response.send_message("Join a VC first!", ephemeral=True)
-
-@bot.tree.command(name="leave", description="Disconnect bot from VC")
-@app_commands.checks.has_permissions(administrator=True)
-async def leave(interaction: discord.Interaction):
-    if interaction.guild.voice_client:
-        await interaction.guild.voice_client.disconnect()
-        await interaction.response.send_message("Disconnected.", ephemeral=True)
-
-@bot.tree.command(name="clear", description="Delete messages")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def clear(interaction: discord.Interaction, amount: int):
-    await interaction.response.defer(ephemeral=True)
-    deleted = await interaction.channel.purge(limit=amount)
-    await interaction.followup.send(f"Deleted {len(deleted)} messages.", ephemeral=True)
-
-# --- [3] Status & Support Portal ---
-@tasks.loop(seconds=10)
-async def change_status():
-    status_list = [discord.Streaming(name="NEXUS | /help", url="https://twitch.tv/discord"),
-                   discord.Streaming(name="Excellence in Service", url="https://twitch.tv/discord")]
-    for s in status_list:
-        await bot.change_presence(activity=s); await asyncio.sleep(10)
+# --- [3] Help Portal (As per Screenshot) ---
 
 class SupportModal(discord.ui.Modal, title='NEXUS Support Form'):
-    user_msg = discord.ui.TextInput(label='Message', style=discord.TextStyle.paragraph, placeholder='Details...', required=True, min_length=10)
+    msg = discord.ui.TextInput(label='Message', style=discord.TextStyle.paragraph, placeholder='Details...', required=True, min_length=10)
     async def on_submit(self, interaction: discord.Interaction):
         log_ch = bot.get_channel(LOG_CHANNEL_ID)
-        embed = discord.Embed(title="New Ticket", color=discord.Color.blue())
+        embed = discord.Embed(title="New Ticket", color=discord.Color.green())
         embed.add_field(name="User", value=f"{interaction.user.mention} ({interaction.user.id})")
-        embed.add_field(name="Message", value=self.user_msg.value, inline=False)
+        embed.add_field(name="Message", value=self.msg.value, inline=False)
         if log_ch:
-            await log_ch.send(embed=embed, view=View(timeout=None).add_item(PunishDropdown(interaction.user.id)))
-            await interaction.response.send_message("Ticket sent.", ephemeral=True)
+            view = View(timeout=None).add_item(PunishDropdown(interaction.user.id))
+            await log_ch.send(embed=embed, view=view)
+            await interaction.response.send_message("✅ Sent to staff.", ephemeral=True)
 
 class HelpView(discord.ui.View):
     def __init__(self): super().__init__(timeout=None)
-    @discord.ui.button(label="Contact Support", style=discord.ButtonStyle.primary)
-    async def contact(self, interaction, button): await interaction.response.send_modal(SupportModal())
+    @discord.ui.button(label="Contact Support", style=discord.ButtonStyle.primary, emoji="📩")
+    async def contact(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(SupportModal())
 
 @bot.tree.command(name="help", description="NEXUS Portal")
 async def help_slash(interaction: discord.Interaction):
     res, reason = check_restriction(interaction.user.id)
-    if res: return await interaction.response.send_message(f"Denied: {reason}", ephemeral=True)
-    embed = discord.Embed(title="NEXUS | Portal", description="Guidelines:\n1. No Spam\n2. Be Clear\n3. Wait for Staff", color=discord.Color.blue())
+    if res: return await interaction.response.send_message(f"❌ Denied: {reason}", ephemeral=True)
+    
+    # Screenshot 2 wala message yahan hai
+    embed = discord.Embed(title="NEXUS | Professional Support", color=discord.Color.blue())
+    embed.add_field(name="Welcome to NEXUS Support Portal™", 
+                    value="We provide high-end assistance and automated solutions for your queries. Click the button below to submit your ticket directly to our staff.", 
+                    inline=False)
+    embed.set_footer(text="Excellence in Service")
     await interaction.response.send_message(embed=embed, view=HelpView())
 
-# --- [4] Admin Dashboard (Control Channel) ---
+# --- [4] Admin Dashboard & Message Selector ---
+
 class FormatView(View):
     def __init__(self, ch, content):
         super().__init__(timeout=60); self.ch, self.content = ch, content
@@ -206,7 +189,13 @@ async def on_message(message):
 
 @bot.event
 async def on_ready():
-    print(f'NEXUS ULTRA ONLINE.'); change_status.start()
+    print(f'NEXUS SUPREME ONLINE.'); change_status.start()
+
+@tasks.loop(seconds=20)
+async def change_status():
+    status_list = [discord.Streaming(name="NEXUS | /help", url="https://twitch.tv/discord")]
+    for s in status_list:
+        await bot.change_presence(activity=s); await asyncio.sleep(20)
 
 keep_alive()
 bot.run(TOKEN)
