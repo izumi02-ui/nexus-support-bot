@@ -58,17 +58,19 @@ async def user_info(interaction: discord.Interaction, member: discord.Member = N
 @bot.tree.command(name="join", description="Connect bot to your VC")
 @app_commands.checks.has_permissions(administrator=True)
 async def join(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True) # Yeh interaction ko zinda rakhta hai
+    await interaction.response.defer(ephemeral=True)
     if interaction.user.voice:
         channel = interaction.user.voice.channel
         try:
+            # FIX: PyNaCl error handle karne ke liye try block
             if interaction.guild.voice_client:
                 await interaction.guild.voice_client.move_to(channel)
             else:
-                await channel.connect()
+                await channel.connect(timeout=20.0, reconnect=True)
             await interaction.followup.send(f"✅ Successfully joined **{channel.name}**")
         except Exception as e:
-            await interaction.followup.send(f"❌ Error: {e}")
+            # Screenshot fix: PyNaCl instruction
+            await interaction.followup.send(f"❌ Voice Error: Please run `pip install pynacl` in your console.\nDetails: {e}")
     else:
         await interaction.followup.send("❌ Join a VC first!")
 
@@ -187,8 +189,9 @@ class FormatView(View):
     @discord.ui.button(label="Normal", style=discord.ButtonStyle.secondary)
     async def normal(self, inter, btn):
         await inter.response.defer(ephemeral=True)
-        sent_files = [await f.to_file() for f in self.files]
-        await self.ch.send(self.content, files=sent_files)
+        # Fix: Re-fetching files correctly
+        fs = [await f.to_file() for f in self.files]
+        await self.ch.send(self.content, files=fs)
         await inter.followup.send("Sent.", ephemeral=True)
 
     @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
@@ -197,16 +200,17 @@ class FormatView(View):
         e = discord.Embed(description=self.content, color=discord.Color.blue())
         e.set_author(name="NEXUS Announcement", icon_url=bot.user.display_avatar.url)
         
-        # Fixing Embed Image: Agar image hai toh use embed ke andar dalna
-        sent_files = []
+        # FIX: GIF/Image preview logic
+        fs = []
         if self.files:
             for f in self.files:
-                if any(ext in f.url.lower() for ext in ['.jpg', '.png', '.jpeg', '.gif']):
+                # Agar attachment hai toh use proxy_url se embed mein set karo
+                if any(ext in f.filename.lower() for ext in ['.jpg', '.png', '.jpeg', '.gif', '.webp']):
                     e.set_image(url=f.url)
-                    break
-            sent_files = [await f.to_file() for f in self.files]
+            fs = [await f.to_file() for f in self.files]
 
-        await self.ch.send(embed=e, files=sent_files if not e.image else [])
+        # Fix: Send files AND embed together
+        await self.ch.send(embed=e, files=fs)
         await inter.followup.send("Embed Sent.", ephemeral=True)
 
 class ChannelSel(Select):
