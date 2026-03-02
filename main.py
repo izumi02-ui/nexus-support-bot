@@ -182,6 +182,32 @@ async def help_slash(interaction: discord.Interaction):
 
 # --- [4] Admin Dashboard & Media Support ---
 
+class FormatView(View):
+    def __init__(self, ch, content, files):
+        super().__init__(timeout=120)
+        self.ch = ch
+        self.content = content or ""
+        self.files = files or []
+
+    async def resend_files(self):
+        new_files = []
+        for attachment in self.files:
+            try:
+                file = await attachment.to_file()
+                new_files.append(file)
+            except:
+                pass
+        return new_files
+
+    @discord.ui.button(label="Normal", style=discord.ButtonStyle.secondary)
+    async def normal(self, inter: discord.Interaction, btn: Button):
+        await inter.response.defer(ephemeral=True)
+
+        files = await self.resend_files()
+        await self.ch.send(content=self.content if self.content else None, files=files if files else None)
+
+        await inter.followup.send("✅ Sent as Normal Message.", ephemeral=True)
+
     @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
     async def embed(self, inter: discord.Interaction, btn: Button):
         await inter.response.defer(ephemeral=True)
@@ -194,19 +220,14 @@ async def help_slash(interaction: discord.Interaction):
 
         files = await self.resend_files()
 
-        # --- FIX STARTS HERE ---
-        if self.files:
-            for attachment in self.files:
-                if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
-                    # Hum image ko 'attachment://filename.png' ke format mein set karenge
-                    embed.set_image(url=f"attachment://{attachment.filename}")
-                    break 
-        # --- FIX ENDS HERE ---
+        # Auto image preview
+        for attachment in self.files:
+            if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                embed.set_image(url=attachment.url)
+                break
 
-        # Files aur Embed ko ek saath bhejna zaruri hai
         await self.ch.send(embed=embed, files=files if files else None)
-        await inter.followup.send("✅ Sent as Embed with Image.", ephemeral=True)
-
+        await inter.followup.send("✅ Sent as Embed.", ephemeral=True)
 
 class ChannelSel(Select):
     def __init__(self, content, attachments):
