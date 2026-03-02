@@ -208,7 +208,7 @@ class FormatView(View):
 
         await inter.followup.send("✅ Sent as Normal Message.", ephemeral=True)
 
-    @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
+        @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
     async def embed(self, inter: discord.Interaction, btn: Button):
         await inter.response.defer(ephemeral=True)
 
@@ -220,14 +220,19 @@ class FormatView(View):
 
         files = await self.resend_files()
 
-        # Auto image preview
-        for attachment in self.files:
-            if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
-                embed.set_image(url=attachment.url)
-                break
+        # --- FIX STARTS HERE ---
+        if self.files:
+            for attachment in self.files:
+                if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                    # Hum image ko 'attachment://filename.png' ke format mein set karenge
+                    embed.set_image(url=f"attachment://{attachment.filename}")
+                    break 
+        # --- FIX ENDS HERE ---
 
+        # Files aur Embed ko ek saath bhejna zaruri hai
         await self.ch.send(embed=embed, files=files if files else None)
-        await inter.followup.send("✅ Sent as Embed.", ephemeral=True)
+        await inter.followup.send("✅ Sent as Embed with Image.", ephemeral=True)
+
 
 class ChannelSel(Select):
     def __init__(self, content, attachments):
