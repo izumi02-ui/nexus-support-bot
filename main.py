@@ -27,19 +27,20 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# --- [Rotating Status Task] ---
+# --- [Rotating Streaming Status Task] ---
 @tasks.loop(seconds=10)
 async def change_status():
-    # Professional rotating status list
+    # Professional rotating streaming status (Purple Icon)
+    # Note: Twitch URL is used only to trigger the purple 'Live' status
     status_list = [
-        discord.Activity(type=discord.ActivityType.watching, name="NEXUS Support | /help"),
-        discord.Activity(type=discord.ActivityType.watching, name=f"over {len(bot.users)} members"),
-        discord.Activity(type=discord.ActivityType.listening, name="DM me for any queries 📩"),
-        discord.Activity(type=discord.ActivityType.playing, name="with NEXUS Commands"),
-        discord.Activity(type=discord.ActivityType.listening, name="your queries")
+        discord.Streaming(name="NEXUS Support | /help", url="https://www.twitch.tv/discord"),
+        discord.Streaming(name=f"over {len(bot.users)} members", url="https://www.twitch.tv/discord"),
+        discord.Streaming(name="DM me for any queries 📩", url="https://www.twitch.tv/discord"),
+        discord.Streaming(name="Excellence in Service", url="https://www.twitch.tv/discord"),
+        discord.Streaming(name="Processing Tickets...", url="https://www.twitch.tv/discord")
     ]
     for status in status_list:
-        await bot.change_presence(status=discord.Status.online, activity=status)
+        await bot.change_presence(activity=status)
         await asyncio.sleep(10)
 
 # --- [1] Support System (Modal & Buttons) ---
@@ -157,7 +158,7 @@ async def on_message(message):
 @bot.event
 async def on_ready():
     print(f'NEXUS Bot is online: {bot.user}')
-    # Start status rotation loop
+    # Start streaming status rotation loop
     if not change_status.is_running():
         change_status.start()
 
