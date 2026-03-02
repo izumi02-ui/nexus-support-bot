@@ -14,7 +14,6 @@ LOG_CHANNEL_ID = 1477923902834475080
 ADMIN_CONTROL_CHANNEL = 1477954227442679910 
 DB_FILE = "punishments.json"
 
-# Saare permissions on kar diye taaki koi feature miss na ho
 intents = discord.Intents.all()
 
 # --- [Database Logic] ---
@@ -59,12 +58,13 @@ async def user_info(interaction: discord.Interaction, member: discord.Member = N
 @bot.tree.command(name="join", description="Connect bot to your VC")
 @app_commands.checks.has_permissions(administrator=True)
 async def join(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True) # Fix: Interaction did not respond
     if interaction.user.voice:
         channel = interaction.user.voice.channel
         await channel.connect()
-        await interaction.response.send_message(f"✅ Joined **{channel.name}**", ephemeral=True)
+        await interaction.followup.send(f"✅ Successfully joined **{channel.name}**")
     else:
-        await interaction.response.send_message("❌ Join a VC first!", ephemeral=True)
+        await interaction.followup.send("❌ Join a VC first!")
 
 @bot.tree.command(name="leave", description="Disconnect bot from VC")
 @app_commands.checks.has_permissions(administrator=True)
@@ -110,6 +110,23 @@ class PunishDropdown(Select):
         save_db(punishments)
         await interaction.response.send_message(f"✅ {res}", ephemeral=True)
 
+@bot.tree.command(name="list_punishments", description="Manage banned/timeout users")
+@app_commands.checks.has_permissions(administrator=True)
+async def list_punishments(interaction: discord.Interaction):
+    data = load_db()
+    if not data: return await interaction.response.send_message("✅ No restrictions found.", ephemeral=True)
+    
+    options = [discord.SelectOption(label=f"ID: {uid}", value=uid, description=f"Type: {info['type']}") for uid, info in list(data.items())[:25]]
+    select = Select(placeholder="Choose user to release...", options=options)
+
+    async def select_callback(inter):
+        data.pop(select.values[0], None)
+        save_db(data)
+        await inter.response.send_message(f"✅ User `{select.values[0]}` restrictions cleared.", ephemeral=True)
+
+    select.callback = select_callback
+    await interaction.response.send_message("NEXUS Security Management", view=View().add_item(select), ephemeral=True)
+
 def check_restriction(user_id):
     uid = str(user_id)
     if uid in punishments:
@@ -123,7 +140,7 @@ def check_restriction(user_id):
                 del punishments[uid]; save_db(punishments)
     return False, None
 
-# --- [3] Help Portal (As per Screenshot) ---
+# --- [3] Help Portal ---
 
 class SupportModal(discord.ui.Modal, title='NEXUS Support Form'):
     msg = discord.ui.TextInput(label='Message', style=discord.TextStyle.paragraph, placeholder='Details...', required=True, min_length=10)
@@ -148,7 +165,6 @@ async def help_slash(interaction: discord.Interaction):
     res, reason = check_restriction(interaction.user.id)
     if res: return await interaction.response.send_message(f"❌ Denied: {reason}", ephemeral=True)
     
-    # Screenshot 2 wala message yahan hai
     embed = discord.Embed(title="NEXUS | Professional Support", color=discord.Color.blue())
     embed.add_field(name="Welcome to NEXUS Support Portal™", 
                     value="We provide high-end assistance and automated solutions for your queries. Click the button below to submit your ticket directly to our staff.", 
@@ -156,35 +172,44 @@ async def help_slash(interaction: discord.Interaction):
     embed.set_footer(text="Excellence in Service")
     await interaction.response.send_message(embed=embed, view=HelpView())
 
-# --- [4] Admin Dashboard & Message Selector ---
+# --- [4] Admin Dashboard & Media Support ---
 
 class FormatView(View):
-    def __init__(self, ch, content):
-        super().__init__(timeout=60); self.ch, self.content = ch, content
+    def __init__(self, ch, content, files):
+        super().__init__(timeout=60); self.ch, self.content, self.files = ch, content, files
+    
     @discord.ui.button(label="Normal", style=discord.ButtonStyle.secondary)
     async def normal(self, inter, btn):
-        await self.ch.send(self.content); await inter.response.send_message("Sent.", ephemeral=True)
+        # Media Support: Sending files along with text
+        sent_files = [await f.to_file() for f in self.files]
+        await self.ch.send(self.content, files=sent_files)
+        await inter.response.send_message("Sent.", ephemeral=True)
+
     @discord.ui.button(label="Embed", style=discord.ButtonStyle.success)
     async def embed(self, inter, btn):
         e = discord.Embed(description=self.content, color=discord.Color.blue())
         e.set_author(name="NEXUS Announcement", icon_url=bot.user.display_avatar.url)
-        await self.ch.send(embed=e); await inter.response.send_message("Embed Sent.", ephemeral=True)
+        sent_files = [await f.to_file() for f in self.files]
+        await self.ch.send(embed=e, files=sent_files)
+        await inter.response.send_message("Embed Sent.", ephemeral=True)
 
 class ChannelSel(Select):
-    def __init__(self, content):
-        self.c = content
+    def __init__(self, content, attachments):
+        self.c, self.a = content, attachments
         channels = [c for c in bot.get_all_channels() if isinstance(c, discord.TextChannel)]
         options = [discord.SelectOption(label=f"#{c.name}", value=str(c.id)) for c in channels[:25]]
         super().__init__(placeholder="Select channel...", options=options)
+    
     async def callback(self, inter):
         ch = bot.get_channel(int(self.values[0]))
-        await inter.response.send_message(f"Target: {ch.mention}", view=FormatView(ch, self.c), ephemeral=True)
+        await inter.response.send_message(f"Target: {ch.mention}", view=FormatView(ch, self.c, self.a), ephemeral=True)
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user: return
     if message.channel.id == ADMIN_CONTROL_CHANNEL:
-        await message.reply("**NEXUS Dashboard**", view=View().add_item(ChannelSel(message.content)))
+        # Pass attachments to the selector
+        await message.reply("**NEXUS Dashboard**", view=View().add_item(ChannelSel(message.content, message.attachments)))
     await bot.process_commands(message)
 
 @bot.event
