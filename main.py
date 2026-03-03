@@ -121,19 +121,18 @@ class PunishDropdown(Select):
 @bot.tree.command(name="list_punishments", description="Manage banned/timeout users")
 @app_commands.checks.has_permissions(administrator=True)
 async def list_punishments(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True) # Bot ko 15 min ka time mil jayega reply dene ke liye
-    
     data = load_db()
     if not data: 
-        return await interaction.followup.send("✅ No restrictions found.", ephemeral=True)
+        return await interaction.response.send_message("✅ No restrictions found.", ephemeral=True)
     
     options = []
+    # Database se IDs nikal kar unka username dhundna
     for uid, info in list(data.items())[:25]:
-        # Try to get user from cache first
+        # Bot ki cache se user object nikalna
         user = bot.get_user(int(uid))
         
-        # Username ke saath ID dikhana
-        display_name = f"{user.name}" if user else f"Unknown User"
+        # Agar user mil gaya toh uska naam dikhao, nahi toh sirf ID
+        display_name = f"{user.name}" if user else f"Unknown ({uid})"
         
         options.append(
             discord.SelectOption(
@@ -143,9 +142,6 @@ async def list_punishments(interaction: discord.Interaction):
             )
         )
 
-    if not options:
-        return await interaction.followup.send("❌ Error: Could not generate list.", ephemeral=True)
-
     select = Select(placeholder="Choose user to release...", options=options)
 
     async def select_callback(inter):
@@ -154,25 +150,7 @@ async def list_punishments(interaction: discord.Interaction):
         await inter.response.send_message(f"✅ User `{select.values[0]}` restrictions cleared.", ephemeral=True)
 
     select.callback = select_callback
-    await interaction.followup.send("🛡️ **NEXUS Security Management**", view=View().add_item(select), ephemeral=True)
-
-@bot.tree.command(name="help", description="NEXUS Portal")
-async def help_slash(interaction: discord.Interaction):
-    # Restriction check zaroori hai
-    is_restricted, reason = check_restriction(interaction.user.id)
-    if is_restricted:
-        return await interaction.response.send_message(f"❌ **Access Denied**: {reason}", ephemeral=True)
-    
-    embed = discord.Embed(
-        title="NEXUS | Professional Support", 
-        description="Welcome to NEXUS Support Portal™\nWe provide high-end assistance. Click the button below to submit your ticket.",
-        color=discord.Color.blue()
-    )
-    embed.set_footer(text="Excellence in Service")
-    
-    # HelpView class upar define honi chahiye
-    await interaction.response.send_message(embed=embed, view=HelpView())
-
+    await interaction.response.send_message("🛡️ **NEXUS Security Management**", view=View().add_item(select), ephemeral=True)
 
 # --- [3] Help Portal ---
 
