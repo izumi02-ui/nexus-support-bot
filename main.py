@@ -124,7 +124,22 @@ async def list_punishments(interaction: discord.Interaction):
     data = load_db()
     if not data: return await interaction.response.send_message("✅ No restrictions found.", ephemeral=True)
     
-    options = [discord.SelectOption(label=f"ID: {uid}", value=uid, description=f"Type: {info['type']}") for uid, info in list(data.items())[:25]]
+    options = []
+    for uid, info in list(data.items())[:25]:
+        # Bot ki cache se user object nikalna
+        user = bot.get_user(int(uid))
+        
+        # Agar user mil gaya toh uska naam dikhao, nahi toh sirf ID
+        display_name = f"{user.name}" if user else f"Unknown ({uid})"
+        
+        options.append(
+            discord.SelectOption(
+                label=display_name, 
+                value=uid, 
+                description=f"ID: {uid} | Type: {info['type']}"
+            )
+        )
+
     select = Select(placeholder="Choose user to release...", options=options)
 
     async def select_callback(inter):
