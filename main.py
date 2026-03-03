@@ -122,9 +122,26 @@ class PunishDropdown(Select):
 @app_commands.checks.has_permissions(administrator=True)
 async def list_punishments(interaction: discord.Interaction):
     data = load_db()
-    if not data: return await interaction.response.send_message("✅ No restrictions found.", ephemeral=True)
+    if not data: 
+        return await interaction.response.send_message("✅ No restrictions found.", ephemeral=True)
     
-    options = [discord.SelectOption(label=f"ID: {uid}", value=uid, description=f"Type: {info['type']}") for uid, info in list(data.items())[:25]]
+    options = []
+    # Database se IDs nikal kar unka username dhundna
+    for uid, info in list(data.items())[:25]:
+        # Bot ki cache se user object nikalna
+        user = bot.get_user(int(uid))
+        
+        # Agar user mil gaya toh uska naam dikhao, nahi toh sirf ID
+        display_name = f"{user.name}" if user else f"Unknown ({uid})"
+        
+        options.append(
+            discord.SelectOption(
+                label=display_name, 
+                value=uid, 
+                description=f"ID: {uid} | Type: {info['type']}"
+            )
+        )
+
     select = Select(placeholder="Choose user to release...", options=options)
 
     async def select_callback(inter):
@@ -133,20 +150,8 @@ async def list_punishments(interaction: discord.Interaction):
         await inter.response.send_message(f"✅ User `{select.values[0]}` restrictions cleared.", ephemeral=True)
 
     select.callback = select_callback
-    await interaction.response.send_message("NEXUS Security Management", view=View().add_item(select), ephemeral=True)
+    await interaction.response.send_message("🛡️ **NEXUS Security Management**", view=View().add_item(select), ephemeral=True)
 
-def check_restriction(user_id):
-    uid = str(user_id)
-    if uid in punishments:
-        data = punishments[uid]
-        if data["type"] == "ban": return True, "Permanent Ban"
-        if data["type"] == "timeout":
-            expiry = datetime.fromisoformat(data["expiry"])
-            if datetime.utcnow() < expiry:
-                return True, f"Timeout ({int((expiry - datetime.utcnow()).total_seconds() / 60)}m left)"
-            else:
-                del punishments[uid]; save_db(punishments)
-    return False, None
 
 # --- [3] Help Portal ---
 
