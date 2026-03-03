@@ -1,6 +1,6 @@
+from flask import render_template
 import threading
 import discord
-from flask import render_template
 from discord.ext import commands, tasks
 from discord import app_commands
 from flask import Flask, redirect, url_for, render_template
@@ -308,42 +308,42 @@ def dashboard():
     user = discord_blueprint.fetch_user()
     return f"<h1>Welcome to NEXUS, {user.name}!</h1><p>Dashboard is now synced with Bot.</p>"
 
-# --- [Running Both Simultaneously] ---
-
-def run_flask():
-    app.run(host="0.0.0.0", port=8080)
-
-if __name__ == "__main__":
-    # Flask ko alag thread mein start karo
-    t = threading.Thread(target=run_flask)
-    t.start()
-
-# --- [YE BLOCK MAIN.PY KE SABSE NEECHE JAYEGA] ---
+# --- [YE POORA BLOCK MAIN.PY KE SABSE NEECHE JAYEGA - PURANA HATA KAR] ---
 
 @app.route("/")
 def index():
+    # Ab ye seedha templates/index.html load karega
     return render_template("index.html")
 
 @app.route("/dashboard")
 def dashboard():
+    # Check karein ki aapne upar 'discord' use kiya hai ya 'discord_blueprint'
+    # Agar error aaye toh 'discord' ko 'discord_blueprint' se badal dena
     if not discord.authorized:
         return redirect(url_for("login"))
+    
     user = discord.fetch_user()
-    return render_template("dashboard.html", 
-                           user=user, 
-                           guilds=len(bot.guilds),
-                           users=len(bot.users),
-                           bot_name=bot.user.name,
-                           status="Online")
+    return render_template(
+        "dashboard.html", 
+        user=user, 
+        guilds=len(bot.guilds),
+        users=len(bot.users),
+        bot_name=bot.user.name,
+        status="Online"
+    )
 
 def run_flask():
+    # Render hamesha port 8080 ya 10000 mangta hai
     app.run(host="0.0.0.0", port=8080)
 
 if __name__ == "__main__":
-    # Flask ko background mein chalane ke liye
+    # Flask ko background thread mein start karein
     import threading
     t = threading.Thread(target=run_flask)
     t.daemon = True
     t.start()
+    
+    # Bot ko start karein (TOKEN variable upar define hona chahiye)
+    print("NEXUS Dashboard & Bot Starting...")
 
 bot.run(TOKEN)
