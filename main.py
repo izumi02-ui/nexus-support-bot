@@ -276,21 +276,22 @@ async def change_status():
     status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://discord.gg/Dkq6CPWfq")
     await bot.change_presence(activity=status)
 
-# --- [Flask Website Logic] ---
+# ==========================================
+# FINAL CLEAN WEB & BOT STARTUP (SAB KUCH EK BAAR)
+# ==========================================
 
 app = Flask(__name__)
 app.secret_key = b"NEXUS_SECRET_KEY_123"
 
-# Yahan apni asli details daalna mat bhulna
 app.config["DISCORD_CLIENT_ID"] = 1477906225663312035
-app.config["DISCORD_CLIENT_SECRET"] = "c3iWYtSwktb0M8H72FOHq-VzundSqgVZ" 
+app.config["DISCORD_CLIENT_SECRET"] = "c3iWYtSwktb0M8H72FOhq-VzundSqgVZ"
 app.config["DISCORD_REDIRECT_URI"] = "https://nexus-support-bot.onrender.com/callback"
 
-discord_blueprint = DiscordOAuth2Session(app) # Naam change kiya taaki bot se na takraye
+discord_blueprint = DiscordOAuth2Session(app)
 
 @app.route("/")
 def index():
-    return '<h1>NEXUS Dashboard</h1><a href="/login">Login with Discord</a>'
+    return render_template("index.html")
 
 @app.route("/login")
 def login():
@@ -305,25 +306,8 @@ def callback():
 def dashboard():
     if not discord_blueprint.authorized:
         return redirect(url_for("login"))
-    user = discord_blueprint.fetch_user()
-    return f"<h1>Welcome to NEXUS, {user.name}!</h1><p>Dashboard is now synced with Bot.</p>"
-
-# ==========================================
-# FINAL CLEAN WEB & BOT STARTUP (DO NOT DUPLICATE)
-# ==========================================
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-@app.route("/dashboard")
-def dashboard():
-    # Note: Agar aapne upar 'discord' ki jagah 'discord_blueprint' 
-    # naam rakha hai, toh niche 'discord' ko 'discord_blueprint' kar dena.
-    if not discord.authorized:
-        return redirect(url_for("login"))
     
-    user = discord.fetch_user()
+    user = discord_blueprint.fetch_user()
     return render_template(
         "dashboard.html", 
         user=user, 
@@ -337,12 +321,10 @@ def run_flask():
     app.run(host="0.0.0.0", port=8080)
 
 if __name__ == "__main__":
-    # Flask in background
     import threading
     t = threading.Thread(target=run_flask)
     t.daemon = True
     t.start()
     
-    # Start the Bot
     print("NEXUS System Online!")
     bot.run(TOKEN)
