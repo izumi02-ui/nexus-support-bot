@@ -283,7 +283,7 @@ app.secret_key = b"NEXUS_SECRET_KEY_123"
 # Yahan apni asli details daalna mat bhulna
 app.config["DISCORD_CLIENT_ID"] = 1477906225663312035
 app.config["DISCORD_CLIENT_SECRET"] = "c3iWYtSwktb0M8H72FOHq-VzundSqgVZ" 
-app.config["DISCORD_REDIRECT_URI"] = "https://nexus-support-bot.onrender.com"
+app.config["DISCORD_REDIRECT_URI"] = "https://nexus-support-bot.onrender.com/callback"
 
 discord_blueprint = DiscordOAuth2Session(app) # Naam change kiya taaki bot se na takraye
 
