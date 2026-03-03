@@ -1,11 +1,12 @@
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
+from flask import Flask, redirect, url_for, render_template
+from flask_discord import DiscordOAuth2Session
 import os
 import asyncio
 import json
 from datetime import datetime, timedelta
-from keep_alive import keep_alive
 from discord.ui import Select, View, Button
 
 # --- Bot Configuration ---
@@ -273,5 +274,40 @@ async def change_status():
     status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://discord.gg/Dkq6CPWfq")
     await bot.change_presence(activity=status)
 
-keep_alive()
+app = Flask(__name__)
+
+# Dashboard Configuration
+app.secret_key = b"NEXUS_SECRET_KEY_123"
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "true" 
+
+app.config["DISCORD_CLIENT_ID"] = 1234567890  # <--- Apna Bot Client ID dalein
+app.config["DISCORD_CLIENT_SECRET"] = "YOUR_SECRET" # <--- Apna Client Secret dalein
+app.config["DISCORD_REDIRECT_URI"] = "https://your-app.onrender.com/callback"
+
+discord = DiscordOAuth2Session(app)
+
+@app.route("/")
+def index():
+    return '<h1>NEXUS Dashboard</h1><a href="/login">Login with Discord</a>'
+
+@app.route("/login")
+def login():
+    return discord.create_session()
+
+@app.route("/callback")
+def callback():
+    discord.callback()
+    return redirect(url_for("dashboard"))
+
+@app.route("/dashboard")
+def dashboard():
+    if not discord.authorized:
+        return redirect(url_for("login"))
+    user = discord.fetch_user()
+    return f"<h1>Welcome to NEXUS, {user.name}!</h1><p>Dashboard coming soon...</p>"
+
+def run():
+    app.run(host="0.0.0.0", port=8080)
+
+
 bot.run(TOKEN)
