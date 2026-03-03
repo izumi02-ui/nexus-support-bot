@@ -308,17 +308,18 @@ def dashboard():
     user = discord_blueprint.fetch_user()
     return f"<h1>Welcome to NEXUS, {user.name}!</h1><p>Dashboard is now synced with Bot.</p>"
 
-# --- [YE POORA BLOCK MAIN.PY KE SABSE NEECHE JAYEGA - PURANA HATA KAR] ---
+# ==========================================
+# FINAL CLEAN WEB & BOT STARTUP (DO NOT DUPLICATE)
+# ==========================================
 
 @app.route("/")
 def index():
-    # Ab ye seedha templates/index.html load karega
     return render_template("index.html")
 
 @app.route("/dashboard")
 def dashboard():
-    # Check karein ki aapne upar 'discord' use kiya hai ya 'discord_blueprint'
-    # Agar error aaye toh 'discord' ko 'discord_blueprint' se badal dena
+    # Note: Agar aapne upar 'discord' ki jagah 'discord_blueprint' 
+    # naam rakha hai, toh niche 'discord' ko 'discord_blueprint' kar dena.
     if not discord.authorized:
         return redirect(url_for("login"))
     
@@ -333,17 +334,15 @@ def dashboard():
     )
 
 def run_flask():
-    # Render hamesha port 8080 ya 10000 mangta hai
     app.run(host="0.0.0.0", port=8080)
 
 if __name__ == "__main__":
-    # Flask ko background thread mein start karein
+    # Flask in background
     import threading
     t = threading.Thread(target=run_flask)
     t.daemon = True
     t.start()
     
-    # Bot ko start karein (TOKEN variable upar define hona chahiye)
-    print("NEXUS Dashboard & Bot Starting...")
-
-bot.run(TOKEN)
+    # Start the Bot
+    print("NEXUS System Online!")
+    bot.run(TOKEN)
