@@ -255,7 +255,7 @@ async def on_ready():
 
 @tasks.loop(seconds=20)
 async def change_status():
-    status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url=".")
+    status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://discord.gg/Dkq6CPWfq")
     await bot.change_presence(activity=status)
 
 keep_alive()
