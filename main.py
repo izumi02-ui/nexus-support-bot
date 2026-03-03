@@ -1,5 +1,6 @@
 import threading
 import discord
+from flask import render_template
 from discord.ext import commands, tasks
 from discord import app_commands
 from flask import Flask, redirect, url_for, render_template
@@ -315,6 +316,34 @@ def run_flask():
 if __name__ == "__main__":
     # Flask ko alag thread mein start karo
     t = threading.Thread(target=run_flask)
+    t.start()
+
+# --- [YE BLOCK MAIN.PY KE SABSE NEECHE JAYEGA] ---
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/dashboard")
+def dashboard():
+    if not discord.authorized:
+        return redirect(url_for("login"))
+    user = discord.fetch_user()
+    return render_template("dashboard.html", 
+                           user=user, 
+                           guilds=len(bot.guilds),
+                           users=len(bot.users),
+                           bot_name=bot.user.name,
+                           status="Online")
+
+def run_flask():
+    app.run(host="0.0.0.0", port=8080)
+
+if __name__ == "__main__":
+    # Flask ko background mein chalane ke liye
+    import threading
+    t = threading.Thread(target=run_flask)
+    t.daemon = True
     t.start()
 
 bot.run(TOKEN)
