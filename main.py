@@ -277,17 +277,12 @@ async def change_status():
     await bot.change_presence(activity=status)
 
 # ==========================================
-# FINAL CLEAN WEB & BOT STARTUP (SAB KUCH EK BAAR)
+# FINAL REPAIRED WEB & BOT STARTUP 
 # ==========================================
 
-app = Flask(__name__)
-app.secret_key = b"NEXUS_SECRET_KEY_123"
-
-app.config["DISCORD_CLIENT_ID"] = 1477906225663312035
-app.config["DISCORD_CLIENT_SECRET"] = "c3iWYtSwktb0M8H72FOhq-VzundSqgVZ"
-app.config["DISCORD_REDIRECT_URI"] = "https://nexus-support-bot.onrender.com/callback"
-
-discord_blueprint = DiscordOAuth2Session(app)
+import os
+# OAuth2 ko HTTPS par chalne ke liye force karein
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1' 
 
 @app.route("/")
 def index():
@@ -295,29 +290,39 @@ def index():
 
 @app.route("/login")
 def login():
-    return discord_blueprint.create_session()
+    # 'identify' aur 'guilds' scopes zaroori hain stats dikhane ke liye
+    return discord_blueprint.create_session(scopes=["identify", "guilds"])
 
 @app.route("/callback")
 def callback():
-    discord_blueprint.callback()
-    return redirect(url_for("dashboard"))
+    try:
+        discord_blueprint.callback()
+        return redirect(url_for("dashboard"))
+    except Exception as e:
+        return f"Callback Error: {e}. Please try logging in again."
 
 @app.route("/dashboard")
 def dashboard():
+    # Authorized check
     if not discord_blueprint.authorized:
         return redirect(url_for("login"))
     
-    user = discord_blueprint.fetch_user()
-    return render_template(
-        "dashboard.html", 
-        user=user, 
-        guilds=len(bot.guilds),
-        users=len(bot.users),
-        bot_name=bot.user.name,
-        status="Online"
-    )
+    try:
+        user = discord_blueprint.fetch_user()
+        # Data ko render_template ke andar bhej rahe hain
+        return render_template(
+            "dashboard.html", 
+            user=user, 
+            guilds=len(bot.guilds) if bot.is_ready() else 0,
+            users=len(bot.users) if bot.is_ready() else 0,
+            bot_name=bot.user.name if bot.user else "NEXUS Bot",
+            status="Online"
+        )
+    except Exception as e:
+        return f"Internal Dashboard Error: {e}"
 
 def run_flask():
+    # Render port 8080 use karta hai
     app.run(host="0.0.0.0", port=8080)
 
 if __name__ == "__main__":
@@ -326,5 +331,5 @@ if __name__ == "__main__":
     t.daemon = True
     t.start()
     
-    print("NEXUS System Online!")
+    print("NEXUS Dashboard & Bot Starting...")
     bot.run(TOKEN)
