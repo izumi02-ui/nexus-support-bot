@@ -183,16 +183,52 @@ class HelpView(discord.ui.View):
     async def contact(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(SupportModal())
 
-@bot.tree.command(name="help", description="NEXUS Portal")
+@bot.tree.command(name="help", description="NEXUS Support Portal")
 async def help_slash(interaction: discord.Interaction):
+    # Restriction Check
     res, reason = check_restriction(interaction.user.id)
-    if res: return await interaction.response.send_message(f"❌ Denied: {reason}", ephemeral=True)
+    if res: 
+        return await interaction.response.send_message(f"❌ Denied: {reason}", ephemeral=True)
     
-    embed = discord.Embed(title="NEXUS | Professional Support", color=discord.Color.blue())
-    embed.add_field(name="Welcome to NEXUS Support Portal™", 
-                    value="We provide high-end assistance and automated solutions for your queries. Click the button below to submit your ticket directly to our staff.", 
-                    inline=False)
-    embed.set_footer(text="Excellence in Service")
+    # --- Professional Embed Styling ---
+    embed = discord.Embed(
+        title="NEXUS SYSTEM ™ | Support Portal",
+        description=(
+            "**Welcome to NEXUS Support Portal™**\n"
+            "We provide high-end assistance and automated solutions for your queries. "
+            "Click the button below to submit your ticket directly to our staff.\n"
+            "**━━━━━━━━━━━━━━━━━━━━━━━━━━**"
+        ),
+        color=0x2b2d31 
+    )
+
+    # --- LOGO / THUMBNAIL ---
+    # Isse bot ka logo upar right side mein dikhega
+    embed.set_thumbnail(url=bot.user.display_avatar.url)
+
+    # Grid fields
+    embed.add_field(name="📊 **Status**", value="`Online`", inline=True)
+    embed.add_field(name="📡 **Ping**", value=f"`{round(bot.latency * 1000)}ms`", inline=True)
+    embed.add_field(name="👥 **Users**", value=f"`{len(bot.users)}`", inline=True)
+
+    # Support Instructions
+    embed.add_field(
+        name="🛠️ **Support Instructions**", 
+        value=(
+            "1. Click the **Contact Support** button below.\n"
+            "2. Fill in your issue details in the form.\n"
+            "3. Wait for a staff member to reach out."
+        ), 
+        inline=False
+    )
+
+    # Footer with Icon
+    embed.set_footer(
+        text=f"ID: {interaction.user.id} • NEXUS Security", 
+        icon_url=bot.user.display_avatar.url
+    )
+    embed.timestamp = datetime.utcnow()
+
     await interaction.response.send_message(embed=embed, view=HelpView())
 
 # --- [4] Admin Dashboard & Media Support ---
