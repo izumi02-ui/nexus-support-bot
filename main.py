@@ -1,10 +1,6 @@
-from flask import render_template
-import threading
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
-from flask import Flask, redirect, url_for, render_template
-from flask_discord import DiscordOAuth2Session
 import os
 import asyncio
 import json
@@ -276,60 +272,5 @@ async def change_status():
     status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://discord.gg/Dkq6CPWfq")
     await bot.change_presence(activity=status)
 
-# ==========================================
-# FINAL REPAIRED WEB & BOT STARTUP 
-# ==========================================
-
-import os
-# OAuth2 ko HTTPS par chalne ke liye force karein
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1' 
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-@app.route("/login")
-def login():
-    # 'identify' aur 'guilds' scopes zaroori hain stats dikhane ke liye
-    return discord_blueprint.create_session(scopes=["identify", "guilds"])
-
-@app.route("/callback")
-def callback():
-    try:
-        discord_blueprint.callback()
-        return redirect(url_for("dashboard"))
-    except Exception as e:
-        return f"Callback Error: {e}. Please try logging in again."
-
-@app.route("/dashboard")
-def dashboard():
-    # Authorized check
-    if not discord_blueprint.authorized:
-        return redirect(url_for("login"))
-    
-    try:
-        user = discord_blueprint.fetch_user()
-        # Data ko render_template ke andar bhej rahe hain
-        return render_template(
-            "dashboard.html", 
-            user=user, 
-            guilds=len(bot.guilds) if bot.is_ready() else 0,
-            users=len(bot.users) if bot.is_ready() else 0,
-            bot_name=bot.user.name if bot.user else "NEXUS Bot",
-            status="Online"
-        )
-    except Exception as e:
-        return f"Internal Dashboard Error: {e}"
-
-def run_flask():
-    # Render port 8080 use karta hai
-    app.run(host="0.0.0.0", port=8080)
-
-if __name__ == "__main__":
-    import threading
-    t = threading.Thread(target=run_flask)
-    t.daemon = True
-    t.start()
-    
-    print("NEXUS Dashboard & Bot Starting...")
-    bot.run(TOKEN)
+keep_alive()
+bot.run(TOKEN)
