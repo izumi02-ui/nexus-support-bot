@@ -293,9 +293,50 @@ class ChannelSel(Select):
 
 @bot.event
 async def on_message(message):
-    if message.author == bot.user: return
+    # 1. Bot ko ignore karne ka rule (Zaroori hai)
+    if message.author == bot.user: 
+        return
+
+    # 2. [NEW] DM System: Welcome & Auto-Clean
+    if isinstance(message.channel, discord.DMChannel):
+        history = []
+        # Sirf pichle 10 messages check karega speed ke liye
+        async for msg in message.channel.history(limit=10):
+            history.append(msg)
+        
+        # Pehla msg? Welcome embed bhejo
+        if len(history) <= 1:
+            welcome_dm = discord.Embed(
+                title="NEXUS SYSTEM ™ | DM Gateway",
+                description=(
+                    "Hello! You have reached the **NEXUS Support DM Gateway**.\n\n"
+                    "**Quick Commands:**\n"
+                    "• Use `/help` in a server for tickets.\n"
+                    "• Describe your issue here for staff review.\n\n"
+                    "**━━━━━━━━━━━━━━━━━━━━━━━━━━**"
+                ),
+                color=0x2b2d31
+            )
+            welcome_dm.set_thumbnail(url=bot.user.display_avatar.url)
+            await message.channel.send(embed=welcome_dm)
+        else:
+            # Welcome msg ko chhod kar bot ke baki msgs delete karo
+            for old_msg in history:
+                if old_msg.author == bot.user:
+                    # Gateway word check karta hai taaki main msg delete na ho
+                    is_welcome = any("Gateway" in str(e.title) for e in old_msg.embeds)
+                    if not is_welcome:
+                        try: await old_msg.delete()
+                        except: pass
+
+    # 3. [KEEPING] Admin Dashboard Logic (Jo aapne manga tha)
     if message.channel.id == ADMIN_CONTROL_CHANNEL:
-        await message.reply("**NEXUS Dashboard**", view=View().add_item(ChannelSel(message.content, message.attachments)))
+        await message.reply(
+            "**NEXUS Dashboard**", 
+            view=View().add_item(ChannelSel(message.content, message.attachments))
+        )
+    
+    # 4. [CRITICAL] Connection Line: Iske bina slash commands nahi chalenge
     await bot.process_commands(message)
 
 @bot.event
@@ -309,5 +350,6 @@ async def change_status():
     status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://discord.gg/Dkq6CPWfq")
     await bot.change_presence(activity=status)
 
+# Sabse niche connection lines
 keep_alive()
 bot.run(TOKEN)
