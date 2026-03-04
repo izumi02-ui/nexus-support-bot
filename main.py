@@ -5,6 +5,7 @@ import os
 import asyncio
 import json
 from datetime import datetime, timedelta
+from keep_alive import keep_alive
 from discord.ui import Select, View, Button
 
 # --- Bot Configuration ---
