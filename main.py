@@ -347,7 +347,7 @@ async def on_ready():
 
 @tasks.loop(seconds=20)
 async def change_status():
-    status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://discord.gg/Dkq6CPWfq")
+    status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://twitch.tv/discord"))
     await bot.change_presence(activity=status)
 
 # Sabse niche connection lines
