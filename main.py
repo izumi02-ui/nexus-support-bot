@@ -347,10 +347,7 @@ async def on_message(message):
 
     # 3. [KEEPING] Admin Dashboard Logic (Jo aapne manga tha)
     if message.channel.id == ADMIN_CONTROL_CHANNEL:
-        await message.reply(
-            "**NEXUS Dashboard**", 
-            view=View().add_item(ChannelSel(message.content, message.attachments))
-        )
+        await message.reply("**NEXUS Dashboard**", view=ChannelSel(message.content, message.attachments))
     
     # 4. [CRITICAL] Connection Line: Iske bina slash commands nahi chalenge
     await bot.process_commands(message)
