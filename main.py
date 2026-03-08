@@ -286,9 +286,11 @@ class ChannelSel(discord.ui.View):
         self.msg_content = content
         self.msg_attachments = attachments
         
-        # Naya ChannelSelect component jo auto-search deta hai
+        # Naya ChannelSelect component - isse search bar aayega
+        # custom_id change karne se purana cache khatam ho jayega
         select = discord.ui.ChannelSelect(
-            placeholder="Select a channel...",
+            custom_id="nexus_channel_select_final",
+            placeholder="Search and select channel...",
             min_values=1,
             max_values=1,
             channel_types=[discord.ChannelType.text]
@@ -297,9 +299,9 @@ class ChannelSel(discord.ui.View):
         self.add_item(select)
 
     async def callback(self, inter: discord.Interaction):
-        # Yahan se channel object utha rahe hain
-        ch = inter.data['resolved']['channels'][inter.data['values'][0]]
-        channel_obj = inter.guild.get_channel(int(inter.data['values'][0]))
+        # ChannelSelect se channel object extract karna
+        channel_id = int(inter.data['values'][0])
+        channel_obj = inter.guild.get_channel(channel_id)
         
         await inter.response.send_message(
             f"Target: {channel_obj.mention}", 
