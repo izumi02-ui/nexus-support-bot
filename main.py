@@ -280,15 +280,15 @@ class FormatView(View):
         await self.ch.send(embed=embed, files=files if files else None)
         await inter.followup.send("✅ Sent as Embed.", ephemeral=True)
 
-# Is class ko pura replace kar dein
 class ChannelSel(discord.ui.View):
     def __init__(self, content, attachments):
         super().__init__(timeout=None)
         self.msg_content = content
         self.msg_attachments = attachments
         
-        # ChannelSelect component (koi 25 limit nahi, search option mil jayega)
+        # 'custom_id' zaroori hai taaki Discord purana cache bhool jaye
         select = discord.ui.ChannelSelect(
+            custom_id="nexus_channel_select_v2", 
             placeholder="Search and select channel...",
             min_values=1,
             max_values=1,
@@ -298,9 +298,9 @@ class ChannelSel(discord.ui.View):
         self.add_item(select)
 
     async def callback(self, inter: discord.Interaction):
-        ch = inter.data['resolved']['channels'][inter.data['values'][0]]
-        # Yahan 'ch' ek object hai, hume bas channel id chahiye
-        channel_obj = inter.guild.get_channel(int(inter.data['values'][0]))
+        # ChannelSelect mein values[0] direct channel ID hota hai
+        channel_id = int(inter.data['values'][0])
+        channel_obj = inter.guild.get_channel(channel_id)
         
         await inter.response.send_message(
             f"Target: {channel_obj.mention}", 
