@@ -286,21 +286,25 @@ class ChannelSel(discord.ui.View):
         self.msg_content = content
         self.msg_attachments = attachments
         
-        # ChannelSelect component (yahi search bar deta hai)
-        ch_select = discord.ui.ChannelSelect(
-            placeholder="Search and select channel...",
-            min_values=1,
-            max_values=1,
-            channel_types=[discord.ChannelType.text]
-        )
-        # Callback ko yahan connect karein
-        ch_select.callback = self.channel_callback
-        self.add_item(ch_select)
+        # 1. Yahan apne zaroori channels ke NAAM daal do
+        priority_channels = ["staff-talk", "tickets", "general-chat", "moderation-action"]
+        
+        # 2. Sirf wahi channels dhundenge jo list mein hain
+        options = []
+        for c in priority_channels:
+            channel = discord.utils.get(bot.get_all_channels(), name=c)
+            if channel and isinstance(channel, discord.TextChannel):
+                options.append(discord.SelectOption(label=f"#{channel.name}", value=str(channel.id)))
+        
+        # 3. Dropdown mein sirf yehi options dikhenge
+        if options:
+            select = discord.ui.Select(placeholder="Select a priority channel...", options=options)
+            select.callback = self.callback
+            self.add_item(select)
 
-    async def channel_callback(self, inter: discord.Interaction):
-        # Yahan se user dwara select kiya gaya channel mil jayega
-        selected_channel = inter.data['resolved']['channels'][inter.data['values'][0]]
-        channel_obj = inter.guild.get_channel(int(inter.data['values'][0]))
+    async def callback(self, inter: discord.Interaction):
+        channel_id = int(inter.data['values'][0])
+        channel_obj = inter.guild.get_channel(channel_id)
         
         await inter.response.send_message(
             f"Target: {channel_obj.mention}", 
