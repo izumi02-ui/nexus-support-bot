@@ -286,31 +286,31 @@ class ChannelSel(discord.ui.View):
         self.msg_content = content
         self.msg_attachments = attachments
         
-        # 1. Yahan apne zaroori channels ke NAAM daal do
-        priority_channels = ["staff-talk", "tickets", "general-chat", "moderation-action" "announcements" "rulebook" "rulebook-for-sutffs"]
-        
-        # 2. Sirf wahi channels dhundenge jo list mein hain
+        # Priority Channels ki list (yahan apne channel dal do)
+        priority_names = ["staff-talk", "tickets", "general-chat", "moderation-action" "announcements" "rulebook" "rulebook-for-sutffs"]
         options = []
-        for c in priority_channels:
-            channel = discord.utils.get(bot.get_all_channels(), name=c)
-            if channel and isinstance(channel, discord.TextChannel):
-                options.append(discord.SelectOption(label=f"#{channel.name}", value=str(channel.id)))
+        for name in priority_names:
+            ch = discord.utils.get(bot.get_all_channels(), name=name)
+            if ch:
+                options.append(discord.SelectOption(label=f"#{ch.name}", value=str(ch.id)))
         
-        # 3. Dropdown mein sirf yehi options dikhenge
         if options:
-            select = discord.ui.Select(placeholder="Select a priority channel...", options=options)
+            select = discord.ui.Select(
+                custom_id="nexus_new_menu_v2", # Ye custom_id zaroori hai!
+                placeholder="Select a priority channel...", 
+                options=options
+            )
             select.callback = self.callback
             self.add_item(select)
 
     async def callback(self, inter: discord.Interaction):
-        channel_id = int(inter.data['values'][0])
-        channel_obj = inter.guild.get_channel(channel_id)
-        
+        ch = inter.guild.get_channel(int(inter.data['values'][0]))
         await inter.response.send_message(
-            f"Target: {channel_obj.mention}", 
-            view=FormatView(channel_obj, self.msg_content, self.msg_attachments), 
+            f"Target: {ch.mention}", 
+            view=FormatView(ch, self.msg_content, self.msg_attachments), 
             ephemeral=True
         )
+
 
 @bot.event
 async def on_message(message):
