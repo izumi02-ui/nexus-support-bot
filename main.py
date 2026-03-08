@@ -286,24 +286,24 @@ class ChannelSel(discord.ui.View):
         self.msg_content = content
         self.msg_attachments = attachments
         
-        # ChannelSelect component - isme koi limit nahi hoti aur search bar aata hai
-        select = discord.ui.ChannelSelect(
-            custom_id="nexus_search_channel_v3",
+        # ChannelSelect component (yahi search bar deta hai)
+        ch_select = discord.ui.ChannelSelect(
             placeholder="Search and select channel...",
             min_values=1,
             max_values=1,
             channel_types=[discord.ChannelType.text]
         )
-        select.callback = self.callback
-        self.add_item(select)
+        # Callback ko yahan connect karein
+        ch_select.callback = self.channel_callback
+        self.add_item(ch_select)
 
-    async def callback(self, inter: discord.Interaction):
-        # Yahan se user dwara select kiya gaya channel object mil jayega
-        channel_id = inter.data['values'][0]
-        channel_obj = inter.guild.get_channel(int(channel_id))
+    async def channel_callback(self, inter: discord.Interaction):
+        # Yahan se user dwara select kiya gaya channel mil jayega
+        selected_channel = inter.data['resolved']['channels'][inter.data['values'][0]]
+        channel_obj = inter.guild.get_channel(int(inter.data['values'][0]))
         
         await inter.response.send_message(
-            f"Target selected: {channel_obj.mention}", 
+            f"Target: {channel_obj.mention}", 
             view=FormatView(channel_obj, self.msg_content, self.msg_attachments), 
             ephemeral=True
         )
