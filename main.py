@@ -280,16 +280,32 @@ class FormatView(View):
         await self.ch.send(embed=embed, files=files if files else None)
         await inter.followup.send("✅ Sent as Embed.", ephemeral=True)
 
-class ChannelSel(Select):
+class ChannelSel(discord.ui.View):
     def __init__(self, content, attachments):
-        self.c, self.a = content, attachments
-        channels = [c for c in bot.get_all_channels() if isinstance(c, discord.TextChannel)]
-        options = [discord.SelectOption(label=f"#{c.name}", value=str(c.id)) for c in channels[:25]]
-        super().__init__(placeholder="Select channel...", options=options)
-    
-    async def callback(self, inter):
-        ch = bot.get_channel(int(self.values[0]))
-        await inter.response.send_message(f"Target: {ch.mention}", view=FormatView(ch, self.c, self.a), ephemeral=True)
+        super().__init__(timeout=None)
+        self.msg_content = content
+        self.msg_attachments = attachments
+        
+        # ChannelSelect component add kar rahe hain
+        self.add_item(discord.ui.ChannelSelect(
+            placeholder="Select a channel...",
+            min_values=1,
+            max_values=1,
+            channel_types=[discord.ChannelType.text] # Sirf text channels
+        ))
+
+    async def interaction_check(self, inter: discord.Interaction) -> bool:
+        # Jab channel select hoga
+        if isinstance(inter.data, dict) and 'values' in inter.data:
+            ch_id = int(inter.data['values'][0])
+            ch = inter.guild.get_channel(ch_id)
+            if ch:
+                await inter.response.send_message(
+                    f"Target: {ch.mention}", 
+                    view=FormatView(ch, self.msg_content, self.msg_attachments), 
+                    ephemeral=True
+                )
+        return True
 
 @bot.event
 async def on_message(message):
