@@ -280,32 +280,33 @@ class FormatView(View):
         await self.ch.send(embed=embed, files=files if files else None)
         await inter.followup.send("✅ Sent as Embed.", ephemeral=True)
 
+# Is class ko pura replace kar dein
 class ChannelSel(discord.ui.View):
     def __init__(self, content, attachments):
         super().__init__(timeout=None)
         self.msg_content = content
         self.msg_attachments = attachments
         
-        # ChannelSelect component add kar rahe hain
-        self.add_item(discord.ui.ChannelSelect(
-            placeholder="Select a channel...",
+        # ChannelSelect component (koi 25 limit nahi, search option mil jayega)
+        select = discord.ui.ChannelSelect(
+            placeholder="Search and select channel...",
             min_values=1,
             max_values=1,
-            channel_types=[discord.ChannelType.text] # Sirf text channels
-        ))
+            channel_types=[discord.ChannelType.text]
+        )
+        select.callback = self.callback
+        self.add_item(select)
 
-    async def interaction_check(self, inter: discord.Interaction) -> bool:
-        # Jab channel select hoga
-        if isinstance(inter.data, dict) and 'values' in inter.data:
-            ch_id = int(inter.data['values'][0])
-            ch = inter.guild.get_channel(ch_id)
-            if ch:
-                await inter.response.send_message(
-                    f"Target: {ch.mention}", 
-                    view=FormatView(ch, self.msg_content, self.msg_attachments), 
-                    ephemeral=True
-                )
-        return True
+    async def callback(self, inter: discord.Interaction):
+        ch = inter.data['resolved']['channels'][inter.data['values'][0]]
+        # Yahan 'ch' ek object hai, hume bas channel id chahiye
+        channel_obj = inter.guild.get_channel(int(inter.data['values'][0]))
+        
+        await inter.response.send_message(
+            f"Target: {channel_obj.mention}", 
+            view=FormatView(channel_obj, self.msg_content, self.msg_attachments), 
+            ephemeral=True
+        )
 
 @bot.event
 async def on_message(message):
