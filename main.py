@@ -287,7 +287,7 @@ class ChannelSel(discord.ui.View):
         self.msg_attachments = attachments
         
         # 1. Yahan apne zaroori channels ke NAAM daal do
-        priority_channels = ["staff-talk", "tickets", "general-chat", "moderation-action"]
+        priority_channels = ["staff-talk", "tickets", "general-chat", "moderation-action" "announcements" "rulebook" "rulebook-for-sutffs"]
         
         # 2. Sirf wahi channels dhundenge jo list mein hain
         options = []
