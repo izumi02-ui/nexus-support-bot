@@ -287,7 +287,7 @@ class ChannelSel(discord.ui.View):
         self.msg_attachments = attachments
         
         # Priority Channels ki list (yahan apne channel dal do)
-        priority_names = ["staff-talk", "tickets-🎫-✓", "general-chat-💬", "rulebook-📜", "announcements", "rulebook-for-sutffs-📑", "polls", "media-saver-🎞️", "🎼-music-vc-guide", "store"]
+        priority_names = ["staff-talk", "tickets-🎫-✓", "general-chat-💬", "rulebook-📜", "announcements", "rulebook-for-sutffs-📑", "polls", "media-saver-🎞️", "🎼-music-vc-guide", "store", "1487895838083514622"]
         options = []
         for name in priority_names:
             ch = discord.utils.get(bot.get_all_channels(), name=name)
