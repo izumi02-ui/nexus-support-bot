@@ -10,7 +10,7 @@ from discord.ui import Select, View, Button
 
 # --- Bot Configuration ---
 TOKEN = os.environ.get("DISCORD_TOKEN")
-LOG_CHANNEL_ID = 1169870987135823876
+LOG_CHANNEL_ID = 1477923902834475080
 ADMIN_CONTROL_CHANNEL = 1477954227442679910
 DB_FILE = "punishments.json"
 
