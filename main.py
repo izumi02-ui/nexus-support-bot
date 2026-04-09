@@ -16,7 +16,7 @@ DB_FILE = "punishments.json"
 
 intents = discord.Intents.all()
 
---- [Database Logic] ---
+# --- [Database Logic] ---
 def load_db():
     if os.path.exists(DB_FILE):
         try:
