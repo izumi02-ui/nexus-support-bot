@@ -126,7 +126,7 @@ async def list_punishments(interaction: discord.Interaction):
     
     options = []
     for uid, info in list(data.items())[:25]:
-        # Bot ki cache se user object nikalna
+        # Removing user objects from the bot's cache
         user = bot.get_user(int(uid))
         
         # If you find a user, show their name, otherwise just their ID.
