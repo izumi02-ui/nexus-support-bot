@@ -62,7 +62,7 @@ async def join(interaction: discord.Interaction):
     if interaction.user.voice:
         channel = interaction.user.voice.channel
         try:
-            # FIX: PyNaCl error handle karne ke liye try block
+            # FIX: Try block for PyNaCl error handling
             if interaction.guild.voice_client:
                 await interaction.guild.voice_client.move_to(channel)
             else:
@@ -129,7 +129,7 @@ async def list_punishments(interaction: discord.Interaction):
         # Bot ki cache se user object nikalna
         user = bot.get_user(int(uid))
         
-        # Agar user mil gaya toh uska naam dikhao, nahi toh sirf ID
+        # If you find a user, show their name, otherwise just their ID.
         display_name = f"{user.name}" if user else f"Unknown ({uid})"
         
         options.append(
@@ -350,7 +350,7 @@ async def on_message(message):
                         try: await old_msg.delete()
                         except: pass
 
-    # 3. [KEEPING] Admin Dashboard Logic (Jo aapne manga tha)
+    # 3. [KEEPING] Admin Dashboard Logic (what you asked for)
     if message.channel.id == ADMIN_CONTROL_CHANNEL:
         await message.reply("**NEXUS Dashboard**", view=ChannelSel(message.content, message.attachments))
     
