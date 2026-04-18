@@ -203,7 +203,7 @@ async def help_slash(interaction: discord.Interaction):
     )
 
     # --- LOGO / THUMBNAIL ---
-    # Isse bot ka logo upar right side mein dikhega
+    # This will display the bot logo on the top right.
     embed.set_thumbnail(url=bot.user.display_avatar.url)
 
     # Grid fields
@@ -286,7 +286,7 @@ class ChannelSel(discord.ui.View):
         self.msg_content = content
         self.msg_attachments = attachments
         
-        # Priority Channels ki list (yahan apne channel dal do)
+        # Priority Channels ki list (put your channel here)
         priority_names = ["staff-talk", "tickets-🎫-✓", "general-chat-💬", "rulebook-📜", "announcements", "rulebook-for-sutffs-📑", "polls", "media-saver-🎞️", "🎼-music-vc-guide", "store", "1487895838083514622"]
         options = []
         for name in priority_names:
@@ -325,7 +325,7 @@ async def on_message(message):
         async for msg in message.channel.history(limit=10):
             history.append(msg)
         
-        # Pehla msg? Welcome embed bhejo
+        # First message? Welcome embed send
         if len(history) <= 1:
             welcome_dm = discord.Embed(
                 title="NEXUS SYSTEM ™ | DM Gateway",
@@ -341,10 +341,10 @@ async def on_message(message):
             welcome_dm.set_thumbnail(url=bot.user.display_avatar.url)
             await message.channel.send(embed=welcome_dm)
         else:
-            # Welcome msg ko chhod kar bot ke baki msgs delete karo
+            # Delete the rest of the messages except the Welcome message.
             for old_msg in history:
                 if old_msg.author == bot.user:
-                    # Gateway word check karta hai taaki main msg delete na ho
+                    # Gateway checks the word so that I don't delete the message
                     is_welcome = any("Gateway" in str(e.title) for e in old_msg.embeds)
                     if not is_welcome:
                         try: await old_msg.delete()
@@ -354,7 +354,7 @@ async def on_message(message):
     if message.channel.id == ADMIN_CONTROL_CHANNEL:
         await message.reply("**NEXUS Dashboard**", view=ChannelSel(message.content, message.attachments))
     
-    # 4. [CRITICAL] Connection Line: Iske bina slash commands nahi chalenge
+    # 4. [CRITICAL] Connection Line: Without this, slash commands will not run
     await bot.process_commands(message)
 
 @bot.event
