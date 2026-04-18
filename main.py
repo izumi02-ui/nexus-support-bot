@@ -296,7 +296,7 @@ class ChannelSel(discord.ui.View):
         
         if options:
             select = discord.ui.Select(
-                custom_id="nexus_new_menu_v2", # Ye custom_id zaroori hai!
+                custom_id="nexus_new_menu_v2", # This custom_id is required!
                 placeholder="Select a priority channel...", 
                 options=options
             )
