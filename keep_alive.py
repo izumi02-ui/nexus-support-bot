@@ -8,7 +8,7 @@ def home():
     return "NEXUS SYSTEM: System is Online and Running!"
 
 def run():
-    # Render ya Repl.it ke liye port 8080 best rehta hai
+    # Port 8080 is best for Render or Repl.it
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
