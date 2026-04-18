@@ -41,7 +41,7 @@ class MyBot(commands.Bot):
 
 bot = MyBot()
 
-# --- [1] Janam Kundli & Utility Commands ---
+# --- [1] Userinfo & Utility Commands ---
 
 @bot.tree.command(name="user_info", description="User ki poori janam kundli nikalen")
 async def user_info(interaction: discord.Interaction, member: discord.Member = None):
@@ -314,14 +314,14 @@ class ChannelSel(discord.ui.View):
 
 @bot.event
 async def on_message(message):
-    # 1. Bot ko ignore karne ka rule (Zaroori hai)
+    # 1. The rule to ignore bots (must have)
     if message.author == bot.user: 
         return
 
     # 2. [NEW] DM System: Welcome & Auto-Clean
     if isinstance(message.channel, discord.DMChannel):
         history = []
-        # Sirf pichle 10 messages check karega speed ke liye
+        # Will check only last 10 messages for speed
         async for msg in message.channel.history(limit=10):
             history.append(msg)
         
@@ -368,6 +368,6 @@ async def change_status():
     status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://twitch.tv/discord")
     await bot.change_presence(activity=status)
 
-# Sabse niche connection lines
+# Most niche connection lines
 keep_alive()
 bot.run(TOKEN)
