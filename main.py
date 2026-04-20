@@ -1,4 +1,5 @@
 import discord
+import datetime
 from discord.ext import commands, tasks
 from discord import app_commands
 import os
@@ -368,45 +369,99 @@ async def change_status():
     status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://twitch.tv/discord")
     await bot.change_presence(activity=status)
 
-# --- 6. Advanced Admin Action System ---
 
-ADMIN_PIN = "6874"  # Is PIN ko aap yahan se badal sakte hain
+# --- 6. Advanced Admin Action System (Final Version) ---
 
-class FinalConfirmModal(discord.ui.Modal, title='Final Security Check'):
-    pin_input = discord.ui.TextInput(label='Confirm PIN to Execute', placeholder='Enter PIN again...', min_length=4, max_length=4)
+ADMIN_PIN = "1234"  # Is PIN ko aap yahan se badal sakte hain
 
-    def __init__(self, action_type, scope, target=None):
+class FinalExecutionModal(discord.ui.Modal, title='⚠️ FINAL SECURITY CHECK'):
+    pin_confirm = discord.ui.TextInput(label='Confirm PIN to Execute', placeholder='Enter PIN again...', min_length=4, max_length=4)
+
+    def __init__(self, action_type, scope, targets=None):
         super().__init__()
         self.action_type = action_type
         self.scope = scope
-        self.target = target
+        self.targets = targets
 
     async def on_submit(self, interaction: discord.Interaction):
-        if self.pin_input.value != ADMIN_PIN:
-            return await interaction.response.send_message("❌ Galat PIN! Action cancel.", ephemeral=True)
+        # Double PIN verification check
+        if self.pin_confirm.value != ADMIN_PIN:
+            return await interaction.response.send_message("❌ PIN mismatch! Operation aborted.", ephemeral=True)
         
-        await interaction.response.send_message(f"🚀 Executing {self.action_type} on {self.scope}...", ephemeral=True)
-        # Yahan actual Ban/Kick ka loop chalega (Be careful with 'All Members'!)
+        await interaction.response.defer(ephemeral=True)
+        count = 0
+        
+        # Action Loop Logic
+        for member in self.targets:
+            # Safety Check: Apne se upar ke roles ya owner ko touch nahi karega
+            if member.top_role >= interaction.guild.me.top_role or member.id == interaction.guild.owner_id:
+                continue
+            
+            try:
+                if self.action_type == "ban":
+                    await member.ban(reason="NEXUS Admin Action")
+                elif self.action_type == "kick":
+                    await member.kick(reason="NEXUS Admin Action")
+                elif self.action_type == "timeout":
+                    await member.timeout(datetime.timedelta(days=1), reason="NEXUS Admin Action")
+                elif self.action_type == "mute":
+                    # Mute ke liye 'Muted' role hona zaroori hai
+                    role = discord.utils.get(interaction.guild.roles, name="Muted")
+                    if role: await member.add_roles(role)
+                count += 1
+            except:
+                continue
+
+        await interaction.followup.send(f"✅ **{self.action_type.upper()}** completed! Total: {count} members affected.", ephemeral=True)
+
+class AmountInputModal(discord.ui.Modal, title='Enter Member Count'):
+    amount = discord.ui.TextInput(label='How many members?', placeholder='Example: 10, 50, 100', required=True)
+
+    def __init__(self, action_type):
+        super().__init__()
+        self.action_type = action_type
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            num = int(self.amount.value)
+            # Server ke sabse purane (oldest) members ki list lega amount ke hisaab se
+            targets = [m for m in interaction.guild.members if not m.bot][:num]
+            await interaction.response.send_modal(FinalExecutionModal(self.action_type, "Amount", targets))
+        except ValueError:
+            await interaction.response.send_message("❌ Please enter a valid number!", ephemeral=True)
 
 class ActionDetailsView(discord.ui.View):
     def __init__(self, action_type):
         super().__init__(timeout=60)
         self.action_type = action_type
 
-    @discord.ui.button(label="Entire Server", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Entire Server", style=discord.ButtonStyle.danger, emoji="☢️")
     async def entire_server(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(FinalConfirmModal(self.action_type, "Entire Server"))
+        targets = [m for m in interaction.guild.members if not m.bot]
+        await interaction.response.send_modal(FinalExecutionModal(self.action_type, "Entire", targets))
 
-    @discord.ui.button(label="Specific Members", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="By Amount", style=discord.ButtonStyle.primary, emoji="🔢")
+    async def by_amount(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(AmountInputModal(self.action_type))
+
+    @discord.ui.button(label="Specific Members", style=discord.ButtonStyle.secondary, emoji="👤")
     async def specific_members(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("Please mention members in next command (Logic implementation pending).", ephemeral=True)
+        view = discord.ui.View()
+        select = discord.ui.UserSelect(placeholder="Select up to 25 members...", max_values=25)
+        
+        async def select_callback(inter: discord.Interaction):
+            await inter.response.send_modal(FinalExecutionModal(self.action_type, "Specific", select.values))
+            
+        select.callback = select_callback
+        view.add_item(select)
+        await interaction.response.send_message("Choose targets:", view=view, ephemeral=True)
 
 class ActionSelectView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=60)
 
     @discord.ui.select(
-        placeholder="Choose Action Type...",
+        placeholder="Choose Moderation Action...",
         options=[
             discord.SelectOption(label="Ban", value="ban", emoji="🔨"),
             discord.SelectOption(label="Kick", value="kick", emoji="👢"),
@@ -418,18 +473,19 @@ class ActionSelectView(discord.ui.View):
         await interaction.response.send_message(f"Selected: **{select.values[0]}**. Choose scope:", view=ActionDetailsView(select.values[0]), ephemeral=True)
 
 class InitialPinModal(discord.ui.Modal, title='Admin Authentication'):
-    pin_input = discord.ui.TextInput(label='Enter Admin Key', placeholder='Enter 4-digit key...', min_length=4, max_length=4)
+    pin_input = discord.ui.TextInput(label='Enter Admin Key', placeholder='4-digit PIN required', min_length=4, max_length=4)
 
     async def on_submit(self, interaction: discord.Interaction):
         if self.pin_input.value == ADMIN_PIN:
-            await interaction.response.send_message("✅ Auth Success! Choose Action:", view=ActionSelectView(), ephemeral=True)
+            await interaction.response.send_message("✅ Identity Verified. Select Action:", view=ActionSelectView(), ephemeral=True)
         else:
-            await interaction.response.send_message("❌ Access Denied!", ephemeral=True)
+            await interaction.response.send_message("❌ Access Denied! Invalid PIN.", ephemeral=True)
 
-@bot.tree.command(name="action", description="High-level admin actions")
+@bot.tree.command(name="action", description="High-level secure admin actions")
 @app_commands.checks.has_permissions(administrator=True)
 async def action_command(interaction: discord.Interaction):
     await interaction.response.send_modal(InitialPinModal())
+
 
 # Most niche connection lines
 keep_alive()
