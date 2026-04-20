@@ -90,45 +90,69 @@ async def clear(interaction: discord.Interaction, amount: int):
     deleted = await interaction.channel.purge(limit=amount)
     await interaction.followup.send(f"🧹 Deleted `{len(deleted)}` messages.", ephemeral=True)
 
-# --- [2] Security & Punishment System ---
+# --- 6. Advanced Admin Action System ---
 
-class PunishDropdown(Select):
-    def __init__(self, user_id):
-        self.target_id = str(user_id)
-        options = [
-            discord.SelectOption(label="10m Timeout", value=f"10_{user_id}"),
-            discord.SelectOption(label="1h Timeout", value=f"60_{user_id}"),
-            discord.SelectOption(label="12h Timeout", value=f"720_{user_id}"),
-            discord.SelectOption(label="24h Timeout", value=f"1440_{user_id}"),
-            discord.SelectOption(label="Permanent Ban", value=f"ban_{user_id}"),
-        ]
-        super().__init__(placeholder="Apply Punishment...", options=options, custom_id=f"p_sel_{user_id}")
+ADMIN_PIN = "1234"  # Is PIN ko aap yahan se badal sakte hain
 
-    async def callback(self, interaction: discord.Interaction):
-        val = self.values[0].split("_")
-        action, target_id = val[0], val[1]
-        if action == "ban":
-            punishments[target_id] = {"type": "ban", "expiry": None}
-            res = f"User <@{target_id}> banned permanently."
-        else:
-            mins = int(action)
-            expiry = datetime.utcnow() + timedelta(minutes=mins)
-            punishments[target_id] = {"type": "timeout", "expiry": expiry.isoformat()}
-            res = f"User <@{target_id}> timed out for {mins}m."
-        save_db(punishments)
-        await interaction.response.send_message(f"✅ {res}", ephemeral=True)
+class FinalConfirmModal(discord.ui.Modal, title='Final Security Check'):
+    pin_input = discord.ui.TextInput(label='Confirm PIN to Execute', placeholder='Enter PIN again...', min_length=4, max_length=4)
 
-@bot.tree.command(name="list_punishments", description="Manage banned/timeout users")
-@app_commands.checks.has_permissions(administrator=True)
-async def list_punishments(interaction: discord.Interaction):
-    data = load_db()
-    if not data: return await interaction.response.send_message("✅ No restrictions found.", ephemeral=True)
-    
-    options = []
-    for uid, info in list(data.items())[:25]:
-        # Removing user objects from the bot's cache
-        user = bot.get_user(int(uid))
+    def __init__(self, action_type, scope, target=None):
+        super().__init__()
+        self.action_type = action_type
+        self.scope = scope
+        self.target = target
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.pin_input.value != ADMIN_PIN:
+            return await interaction.response.send_message("❌ Galat PIN! Action cancel.", ephemeral=True)
         
+        await interaction.response.send_message(f"🚀 Executing {self.action_type} on {self.scope}...", ephemeral=True)
+        # Yahan actual Ban/Kick ka loop chalega (Be careful with 'All Members'!)
+
+class ActionDetailsView(discord.ui.View):
+    def __init__(self, action_type):
+        super().__init__(timeout=60)
+        self.action_type = action_type
+
+    @discord.ui.button(label="Entire Server", style=discord.ButtonStyle.danger)
+    async def entire_server(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(FinalConfirmModal(self.action_type, "Entire Server"))
+
+    @discord.ui.button(label="Specific Members", style=discord.ButtonStyle.secondary)
+    async def specific_members(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("Please mention members in next command (Logic implementation pending).", ephemeral=True)
+
+class ActionSelectView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+
+    @discord.ui.select(
+        placeholder="Choose Action Type...",
+        options=[
+            discord.SelectOption(label="Ban", value="ban", emoji="🔨"),
+            discord.SelectOption(label="Kick", value="kick", emoji="👢"),
+            discord.SelectOption(label="Timeout", value="timeout", emoji="⏳"),
+            discord.SelectOption(label="Mute", value="mute", emoji="🔇")
+        ]
+    )
+    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
+        await interaction.response.send_message(f"Selected: **{select.values[0]}**. Choose scope:", view=ActionDetailsView(select.values[0]), ephemeral=True)
+
+class InitialPinModal(discord.ui.Modal, title='Admin Authentication'):
+    pin_input = discord.ui.TextInput(label='Enter Admin Key', placeholder='Enter 4-digit key...', min_length=4, max_length=4)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.pin_input.value == ADMIN_PIN:
+            await interaction.response.send_message("✅ Auth Success! Choose Action:", view=ActionSelectView(), ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Access Denied!", ephemeral=True)
+
+@bot.tree.command(name="action", description="High-level admin actions")
+@app_commands.checks.has_permissions(administrator=True)
+async def action_command(interaction: discord.Interaction):
+    await interaction.response.send_modal(InitialPinModal())
+
         # If you find a user, show their name, otherwise just their ID.
         display_name = f"{user.name}" if user else f"Unknown ({uid})"
         
