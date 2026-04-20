@@ -92,7 +92,7 @@ async def clear(interaction: discord.Interaction, amount: int):
 
 # --- 6. Advanced Admin Action System ---
 
-ADMIN_PIN = "1234"  # Is PIN ko aap yahan se badal sakte hain
+ADMIN_PIN = "9330536874"  # Is PIN ko aap yahan se badal sakte hain
 
 class FinalConfirmModal(discord.ui.Modal, title='Final Security Check'):
     pin_input = discord.ui.TextInput(label='Confirm PIN to Execute', placeholder='Enter PIN again...', min_length=4, max_length=4)
