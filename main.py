@@ -372,7 +372,7 @@ async def change_status():
 
 # --- 6. Advanced Admin Action System (Final Version) ---
 
-ADMIN_PIN = "1234"  # Is PIN ko aap yahan se badal sakte hain
+ADMIN_PIN = "6874"  # Is PIN ko aap yahan se badal sakte hain
 
 class FinalExecutionModal(discord.ui.Modal, title='⚠️ FINAL SECURITY CHECK'):
     pin_confirm = discord.ui.TextInput(label='Confirm PIN to Execute', placeholder='Enter PIN again...', min_length=4, max_length=4)
