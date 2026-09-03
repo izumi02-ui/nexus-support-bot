@@ -414,8 +414,11 @@ class FinalExecutionModal(discord.ui.Modal, title='⚠️ FINAL SECURITY CHECK')
                     role = discord.utils.get(interaction.guild.roles, name="Muted")
                     if role: await member.add_roles(role)
                 count += 1
-            except Exception as error:
-    print(f"ACTION ERROR for {member} ({member.id}): {type(error).__name__}: {error}")
+                        except Exception as error:
+                print(
+                    f"ACTION ERROR for {member} ({member.id}): "
+                    f"{type(error).__name__}: {error}"
+                )
 
         await interaction.followup.send(f"✅ **{self.action_type.upper()}** completed! Total: {count} members affected.", ephemeral=True)
 
