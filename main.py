@@ -366,9 +366,9 @@ async def on_ready():
 
 @tasks.loop(seconds=20)
 async def change_status():
-    activity = discord.Streaming(
+    activity = discord.Activity(
+        type=discord.ActivityType.watching,
         name="NEXUS | DM me for any queries 📩",
-        url="https://twitch.tv/discord",
     )
 
     await bot.change_presence(
