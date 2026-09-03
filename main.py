@@ -365,7 +365,6 @@ async def on_ready():
         change_status.start()
 
 @tasks.loop(seconds=20)
-@tasks.loop(seconds=20)
 async def change_status():
     activity = discord.Streaming(
         name="NEXUS | DM me for any queries 📩",
