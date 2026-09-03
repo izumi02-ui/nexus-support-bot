@@ -412,14 +412,12 @@ class FinalExecutionModal(discord.ui.Modal, title='⚠️ FINAL SECURITY CHECK')
                 elif self.action_type == "kick":
                     await member.kick(reason="NEXUS Admin Action")
 
-                elif self.action_type.startswith("timeout_"):
-    minutes = int(self.action_type.split("_")[1])
-    await member.timeout(
-        timedelta(minutes=minutes),
-        reason="NEXUS Admin Action",
-    )
-
-                elif self.action_type == "mute":
+                                elif self.action_type.startswith("timeout_"):
+                    minutes = int(self.action_type.split("_")[1])
+                    await member.timeout(
+                        timedelta(minutes=minutes),
+                        reason="NEXUS Admin Action",
+                    )                elif self.action_type == "mute":
                     role = discord.utils.get(
                         interaction.guild.roles,
                         name="Muted",
