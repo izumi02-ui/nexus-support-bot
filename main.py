@@ -403,14 +403,14 @@ class FinalExecutionModal(discord.ui.Modal, title='⚠️ FINAL SECURITY CHECK')
                 elif self.action_type == "kick":
                     await member.kick(reason="NEXUS Admin Action")
                 elif self.action_type == "timeout":
-                    await member.timeout(datetime.timedelta(days=1), reason="NEXUS Admin Action")
+                    await member.timeout(timedelta(days=1), reason="NEXUS Admin Action")
                 elif self.action_type == "mute":
                     # Mute ke liye 'Muted' role hona zaroori hai
                     role = discord.utils.get(interaction.guild.roles, name="Muted")
                     if role: await member.add_roles(role)
                 count += 1
-            except:
-                continue
+            except Exception as error:
+    print(f"ACTION ERROR for {member} ({member.id}): {type(error).__name__}: {error}")
 
         await interaction.followup.send(f"✅ **{self.action_type.upper()}** completed! Total: {count} members affected.", ephemeral=True)
 
