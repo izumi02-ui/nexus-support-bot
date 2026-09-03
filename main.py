@@ -397,30 +397,54 @@ class FinalExecutionModal(discord.ui.Modal, title='⚠️ FINAL SECURITY CHECK')
         count = 0
         
         # Action Loop Logic
+                # Action Loop Logic
         for member in self.targets:
-            # Safety Check: Apne se upar ke roles ya owner ko touch nahi karega
-            if member.top_role >= interaction.guild.me.top_role or member.id == interaction.guild.owner_id:
+            if (
+                member.top_role >= interaction.guild.me.top_role
+                or member.id == interaction.guild.owner_id
+            ):
                 continue
-            
+
             try:
                 if self.action_type == "ban":
                     await member.ban(reason="NEXUS Admin Action")
+
                 elif self.action_type == "kick":
                     await member.kick(reason="NEXUS Admin Action")
+
                 elif self.action_type == "timeout":
-                    await member.timeout(timedelta(days=1), reason="NEXUS Admin Action")
+                    await member.timeout(
+                        timedelta(days=1),
+                        reason="NEXUS Admin Action",
+                    )
+
                 elif self.action_type == "mute":
-                    # Mute ke liye 'Muted' role hona zaroori hai
-                    role = discord.utils.get(interaction.guild.roles, name="Muted")
-                    if role: await member.add_roles(role)
+                    role = discord.utils.get(
+                        interaction.guild.roles,
+                        name="Muted",
+                    )
+
+                    if role is None:
+                        raise RuntimeError("A role named 'Muted' does not exist.")
+
+                    await member.add_roles(
+                        role,
+                        reason="NEXUS Admin Action",
+                    )
+
                 count += 1
-                        except Exception as error:
+
+            except Exception as error:
                 print(
                     f"ACTION ERROR for {member} ({member.id}): "
                     f"{type(error).__name__}: {error}"
                 )
 
-        await interaction.followup.send(f"✅ **{self.action_type.upper()}** completed! Total: {count} members affected.", ephemeral=True)
+        await interaction.followup.send(
+            f"✅ **{self.action_type.upper()}** completed! "
+            f"Total: {count} members affected.",
+            ephemeral=True,
+        )
 
 class AmountInputModal(discord.ui.Modal, title='Enter Member Count'):
     amount = discord.ui.TextInput(label='How many members?', placeholder='Example: 10, 50, 100', required=True)
