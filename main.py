@@ -397,7 +397,6 @@ class FinalExecutionModal(discord.ui.Modal, title='⚠️ FINAL SECURITY CHECK')
         count = 0
         
         # Action Loop Logic
-                # Action Loop Logic
         for member in self.targets:
             if (
                 member.top_role >= interaction.guild.me.top_role
@@ -405,7 +404,7 @@ class FinalExecutionModal(discord.ui.Modal, title='⚠️ FINAL SECURITY CHECK')
             ):
                 continue
 
-                        try:
+                try:
                 if self.action_type == "ban":
                     await member.ban(reason="NEXUS Admin Action")
 
