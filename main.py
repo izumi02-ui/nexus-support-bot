@@ -365,11 +365,17 @@ async def on_ready():
         change_status.start()
 
 @tasks.loop(seconds=20)
+@tasks.loop(seconds=20)
 async def change_status():
-    status = discord.Streaming(name="NEXUS | DM me for any queries 📩", url="https://twitch.tv/discord")
-    await bot.change_presence(activity=status)
+    activity = discord.Streaming(
+        name="NEXUS | DM me for any queries 📩",
+        url="https://twitch.tv/discord",
+    )
 
-
+    await bot.change_presence(
+        status=discord.Status.dnd,
+        activity=activity,
+    )
 # --- 6. Advanced Admin Action System (Final Version) ---
 
 ADMIN_PIN = "6874"  # Is PIN ko aap yahan se badal sakte hain
