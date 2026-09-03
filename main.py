@@ -412,11 +412,12 @@ class FinalExecutionModal(discord.ui.Modal, title='⚠️ FINAL SECURITY CHECK')
                 elif self.action_type == "kick":
                     await member.kick(reason="NEXUS Admin Action")
 
-                elif self.action_type == "timeout":
-                    await member.timeout(
-                        timedelta(days=1),
-                        reason="NEXUS Admin Action",
-                    )
+                elif self.action_type.startswith("timeout_"):
+    minutes = int(self.action_type.split("_")[1])
+    await member.timeout(
+        timedelta(minutes=minutes),
+        reason="NEXUS Admin Action",
+    )
 
                 elif self.action_type == "mute":
                     role = discord.utils.get(
@@ -497,7 +498,11 @@ class ActionSelectView(discord.ui.View):
         options=[
             discord.SelectOption(label="Ban", value="ban", emoji="🔨"),
             discord.SelectOption(label="Kick", value="kick", emoji="👢"),
-            discord.SelectOption(label="Timeout", value="timeout", emoji="⏳"),
+            discord.SelectOption(label="Timeout — 10 minutes", value="timeout_10", emoji="⏱️"),
+discord.SelectOption(label="Timeout — 1 hour", value="timeout_60", emoji="🕐"),
+discord.SelectOption(label="Timeout — 12 hours", value="timeout_720", emoji="🕛"),
+discord.SelectOption(label="Timeout — 24 hours", value="timeout_1440", emoji="📅"),
+discord.SelectOption(label="Timeout — 7 days", value="timeout_10080", emoji="🗓️"),
             discord.SelectOption(label="Mute", value="mute", emoji="🔇")
         ]
     )
